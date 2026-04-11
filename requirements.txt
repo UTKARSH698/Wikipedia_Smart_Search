@@ -21,10 +21,6 @@ nltk==3.8.1               # Sentence tokenization for smarter chunking
 # ── Wikipedia data source ─────────────────────────────────────────────────────
 wikipedia==1.4.0
 
-# ── Legacy Streamlit frontend (frontend/app.py) — not used by React frontend ──
-streamlit==1.35.0
-requests==2.32.2
-
 # ── Utilities ─────────────────────────────────────────────────────────────────
 numpy==1.26.4
 

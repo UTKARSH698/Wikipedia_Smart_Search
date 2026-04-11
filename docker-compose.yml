@@ -56,30 +56,6 @@ services:
       retries: 5
       start_period: 90s             # Extra time for model warm-up on first boot
 
-  frontend:
-    <<: *app-base
-    container_name: wiki_frontend
-    command: >
-      streamlit run frontend/app.py
-        --server.port=8501
-        --server.address=0.0.0.0
-        --server.headless=true
-        --server.fileWatcherType=none
-    ports:
-      - "8501:8501"
-    environment:
-      - PYTHONUNBUFFERED=1
-      - OMP_NUM_THREADS=1
-      - MKL_NUM_THREADS=1
-      - BACKEND_URL=${BACKEND_URL:-http://backend:8000}
-      # Pass the same API key to the frontend so it can auth against the backend
-      - WIKI_API_KEY=${API_KEY:-}
-    mem_limit: 300m
-    memswap_limit: 800m
-    depends_on:
-      backend:
-        condition: service_healthy
-
   react:
     image: node:20-alpine
     container_name: wiki_react

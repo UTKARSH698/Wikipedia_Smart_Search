@@ -9,10 +9,10 @@ A full-stack RAG (Retrieval-Augmented Generation) application that answers quest
 │  streaming UI   │ ◄──────────── │  2. Split into passages (NLTK sentence chunk)  │
 └─────────────────┘  token/done  │  3. Encode — sentence-transformers bi-encoder  │
                                   │  4. Vector search — FAISS  or  Pinecone        │
-┌─────────────────┐               │  5. Cross-encoder re-ranking                   │
-│  Streamlit UI   │ ────────────► │  6. LLM answer — flan-t5 / OpenAI / Anthropic │
-│  :8501          │               │  7. TTL cache · Prometheus metrics             │
-└─────────────────┘               └──────────────────────────────────────────────┘
+                                  │  5. Cross-encoder re-ranking                   │
+                                  │  6. LLM answer — flan-t5 / OpenAI / Anthropic │
+                                  │  7. TTL cache · Prometheus metrics             │
+                                  └──────────────────────────────────────────────┘
 ```
 
 ---
@@ -59,8 +59,6 @@ wiki/
 │           ├── PassageCard.jsx   # Passage with score badge + keyword highlight
 │           ├── RelatedTopics.jsx # Clickable topic chips
 │           └── AuthModal.jsx     # Login / register modal
-├── frontend/
-│   └── app.py              # Streamlit UI (alternative frontend)
 ├── eval/
 │   └── evaluate.py         # CLI benchmark — Precision@k, MRR, latency
 ├── tests/
@@ -126,14 +124,7 @@ npm run dev
 # → http://localhost:3000
 ```
 
-### 4 — (Optional) Streamlit UI
-
-```bash
-streamlit run frontend/app.py
-# → http://localhost:8501
-```
-
-### 5 — API docs
+### 4 — API docs
 
 FastAPI interactive docs at **http://localhost:8000/docs**
 
@@ -142,12 +133,11 @@ FastAPI interactive docs at **http://localhost:8000/docs**
 ## Docker (Recommended)
 
 ```bash
-# Start all services: backend + React + Streamlit + Prometheus + Grafana
+# Start all services: backend + React + Prometheus + Grafana
 docker compose up --build
 
 # Backend     → http://localhost:8000
 # React       → http://localhost:3000
-# Streamlit   → http://localhost:8501
 # Prometheus  → http://localhost:9090
 # Grafana     → http://localhost:3001  (admin / admin)
 ```
@@ -203,7 +193,6 @@ Optimised for **t2.micro** (1 GB RAM). Build the image locally and push to Docke
 | 22 | Your IP | SSH |
 | 8000 | 0.0.0.0/0 | FastAPI backend |
 | 3000 | 0.0.0.0/0 | React frontend |
-| 8501 | 0.0.0.0/0 | Streamlit frontend |
 | 9090 | Your IP | Prometheus (restrict to your IP) |
 | 3001 | Your IP | Grafana (restrict to your IP) |
 
@@ -228,7 +217,6 @@ chmod +x ec2_setup.sh
 | Service | URL |
 |---------|-----|
 | React UI | `http://<EC2_PUBLIC_IP>:3000` |
-| Streamlit UI | `http://<EC2_PUBLIC_IP>:8501` |
 | API docs | `http://<EC2_PUBLIC_IP>:8000/docs` |
 | Prometheus | `http://<EC2_PUBLIC_IP>:9090` |
 | Grafana | `http://<EC2_PUBLIC_IP>:3001` |
