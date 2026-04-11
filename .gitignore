@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets — NEVER commit these
+.env
+*.env
+
+# Data directory — FAISS indexes and logs (can be large)
+data/*.faiss
+data/*.pkl
+data/*.log
+data/app.log
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.xml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.tar
+
+# Node.js / React
+node_modules/
+frontend_react/dist/
+frontend_react/.env.local
+frontend_react/node_modules/
+
+# SQLite database
+data/*.db
