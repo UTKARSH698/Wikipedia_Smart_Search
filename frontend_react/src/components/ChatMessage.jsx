@@ -95,7 +95,7 @@ export default function ChatMessage({ msg, onTopicClick }) {
                 <span className="material-symbols-outlined text-base text-primary">link</span>
                 Sources:{" "}
                 {sources.map((s, i) => (
-                  <span key={i}>
+                  <span key={s.title ?? i}>
                     <a href={s.url} target="_blank" rel="noopener noreferrer"
                       className="text-primary hover:underline not-italic">{s.title}</a>
                     {i < sources.length - 1 && ", "}
@@ -119,7 +119,7 @@ export default function ChatMessage({ msg, onTopicClick }) {
               {passagesOpen && (
                 <div className="p-4 space-y-3 bg-surface-container-lowest/50">
                   {passages.map((p, i) => (
-                    <PassageCard key={i} passage={p} index={i} />
+                    <PassageCard key={p.source?.title ? `${p.source.title}-${i}` : i} passage={p} index={i} />
                   ))}
                 </div>
               )}
@@ -130,8 +130,8 @@ export default function ChatMessage({ msg, onTopicClick }) {
           {relatedTopics.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-2">
               <span className="text-xs font-label text-outline uppercase tracking-widest block w-full mb-1">Related Archives</span>
-              {relatedTopics.map((topic, i) => (
-                <button key={i} onClick={() => onTopicClick?.(topic)}
+              {relatedTopics.map((topic) => (
+                <button key={topic} onClick={() => onTopicClick?.(topic)}
                   className="px-4 py-2 rounded-full border border-primary/20 hover:bg-primary/10 cursor-pointer transition-colors text-xs font-medium text-on-surface-variant hover:text-primary">
                   {topic}
                 </button>

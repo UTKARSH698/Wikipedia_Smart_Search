@@ -103,7 +103,7 @@ export default function App() {
               cached: chunk.cached,
             } : m
           ));
-          if (token) fetchHistory(token).then(setHistory).catch(() => {});
+          if (token) fetchHistory(token).then(setHistory).catch((e) => console.warn("History refresh failed:", e));
         } else if (chunk.type === "error") {
           setMessages((prev) =>
             prev.filter((m) => m.id !== msgId).concat({ role: "error", content: chunk.content })
