@@ -1,27 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
-const SAMPLES = [
-  "What is Artificial Intelligence?",
-  "Explain Quantum Computing",
-  "History of the Internet",
-  "How does CRISPR work?",
-  "Who was Nikola Tesla?",
-  "Explain the Theory of Relativity",
-  "What causes climate change?",
-  "How do black holes form?",
-];
+const MAX = 300;
 
 export default function QueryInput({ onSubmit, loading }) {
-  const [query, setQuery] = useState("");
-  const [showSamples, setShowSamples] = useState(false);
-
-  function submit(q) {
-    const trimmed = (q ?? query).trim();
-    if (!trimmed || loading) return;
-    onSubmit(trimmed);
-    setQuery("");
-    setShowSamples(false);
-  }
+  const [text, setText] = useState("");
+  const inputRef = useRef(null);
 
   function handleKey(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -30,70 +13,72 @@ export default function QueryInput({ onSubmit, loading }) {
     }
   }
 
+  function submit() {
+    const q = text.trim();
+    if (!q || loading || q.length > MAX) return;
+    onSubmit(q);
+    setText("");
+  }
+
   return (
-    <div className="border-t border-gray-800 bg-gray-950 px-4 pt-3 pb-4">
-      {/* Sample queries */}
-      {showSamples && (
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {SAMPLES.map((s) => (
+    <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface via-surface to-transparent">
+      <div className="max-w-3xl mx-auto relative group">
+        {/* Focus glow */}
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-primary/10 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />
+
+        {/* Input container */}
+        <div className="relative flex items-center rounded-2xl p-2 pl-6 pr-3 shadow-2xl"
+             style={{ background: "rgba(51,52,59,0.6)", backdropFilter: "blur(24px)" }}>
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={(e) => setText(e.target.value.slice(0, MAX))}
+            onKeyDown={handleKey}
+            placeholder="Ask the archivist anything..."
+            disabled={loading}
+            className="flex-1 bg-transparent border-none outline-none font-body py-4"
+            style={{
+              color: "#e2e2eb",
+              fontSize: "1.125rem",
+            }}
+          />
+          <div className="flex items-center gap-2">
             <button
-              key={s}
-              onClick={() => submit(s)}
-              className="bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs px-3 py-1.5 rounded-full transition-colors"
+              type="button"
+              className="p-2 transition-colors"
+              style={{ color: "#908fa0" }}
+              onMouseEnter={e => e.currentTarget.style.color = "#69f6b8"}
+              onMouseLeave={e => e.currentTarget.style.color = "#908fa0"}
             >
-              {s}
+              <span className="material-symbols-outlined">attach_file</span>
             </button>
-          ))}
+            <button
+              onClick={submit}
+              disabled={!text.trim() || loading || text.length > MAX}
+              className="flex items-center justify-center transition-all hover:shadow-lg active:scale-100 disabled:opacity-40"
+              style={{
+                width: "3rem",
+                height: "3rem",
+                borderRadius: "0.75rem",
+                background: "#69f6b8",
+                color: "#003923",
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 20px rgba(105,246,184,0.2)"; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; }}
+            >
+              {loading ? (
+                <span className="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
+              )}
+            </button>
+          </div>
         </div>
-      )}
-
-      <div className="flex gap-2 items-end">
-        {/* Samples toggle */}
-        <button
-          onClick={() => setShowSamples(!showSamples)}
-          title="Sample queries"
-          className="w-10 h-10 flex-shrink-0 rounded-xl bg-gray-800 hover:bg-gray-700
-                     text-gray-400 flex items-center justify-center transition-colors text-lg"
-        >
-          💡
-        </button>
-
-        {/* Textarea */}
-        <textarea
-          rows={1}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Ask anything about Wikipedia…"
-          maxLength={300}
-          disabled={loading}
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5
-                     text-white placeholder-gray-500 text-sm resize-none
-                     focus:outline-none focus:border-brand disabled:opacity-50
-                     max-h-32 overflow-y-auto"
-          style={{ minHeight: "42px" }}
-          onInput={(e) => {
-            e.target.style.height = "auto";
-            e.target.style.height = Math.min(e.target.scrollHeight, 128) + "px";
-          }}
-        />
-
-        {/* Send button */}
-        <button
-          onClick={() => submit()}
-          disabled={!query.trim() || loading}
-          className="w-10 h-10 flex-shrink-0 rounded-xl bg-brand hover:bg-brand-dark
-                     disabled:opacity-40 text-white flex items-center justify-center
-                     transition-colors text-lg"
-        >
-          {loading ? (
-            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : "↑"}
-        </button>
       </div>
-
-      <p className="text-center text-xs text-gray-700 mt-2">
-        Enter to send · Shift+Enter for newline · {query.length}/300
+      <p className="text-center mt-4 uppercase tracking-[0.2em] font-label"
+         style={{ fontSize: "0.625rem", color: "#464554" }}>
+        Verified by Wikipedia Archives &amp; Global Intelligence Network
       </p>
     </div>
   );

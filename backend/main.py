@@ -169,13 +169,18 @@ class SourceInfo(BaseModel):
     url: str
 
 
+class PassageInfo(BaseModel):
+    passage: str
+    score: float
+    source: SourceInfo
+
+
 class AskResponse(BaseModel):
     query: str
     answer: str
     primary_title: str
     primary_url: str
-    passages: list[str]
-    scores: list[float]
+    passages: list[PassageInfo]
     sources: list[SourceInfo]
     related_topics: list[str]
     cached: bool = False
@@ -384,9 +389,11 @@ def ask(
         "answer":        answer,
         "primary_title": primary_title,
         "primary_url":   primary_url,
-        "passages":      [r.passage for r in results],
-        "scores":        [round(r.score, 4) for r in results],
-        "sources":       [r.source for r in results],
+        "passages":      [
+            {"passage": r.passage, "score": round(r.score, 4), "source": r.source}
+            for r in results
+        ],
+        "sources":       list({r.source["title"]: r.source for r in results}.values()),
         "related_topics": related_topics,
         "cached":        False,
     }
@@ -481,9 +488,11 @@ def ask_stream(
             "answer":         full_answer,
             "primary_title":  primary_title,
             "primary_url":    primary_url,
-            "passages":       [r.passage for r in results],
-            "scores":         [round(r.score, 4) for r in results],
-            "sources":        [r.source for r in results],
+            "passages":       [
+                {"passage": r.passage, "score": round(r.score, 4), "source": r.source}
+                for r in results
+            ],
+            "sources":        list({r.source["title"]: r.source for r in results}.values()),
             "related_topics": related_topics,
             "cached":         False,
             "latency_ms":     round(latency_ms),

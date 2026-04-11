@@ -132,14 +132,6 @@ class AnswerGenerator:
 
         return "\n\n".join(parts)
 
-    def _source_footer(self, results: List[SearchResult]) -> str:
-        seen = {}
-        for r in results:
-            t = r.source["title"]
-            if t not in seen:
-                seen[t] = r.source["url"]
-        return "*Sources: " + ", ".join(f"[{t}]({u})" for t, u in seen.items()) + "*"
-
     # ------------------------------------------------------------------
     # Local flan-t5
     # ------------------------------------------------------------------
@@ -189,30 +181,21 @@ class AnswerGenerator:
                 if generated and generated[0].islower():
                     generated = generated[0].upper() + generated[1:]
                 if len(generated) >= 20:
-                    # Append supporting passages so the answer is always substantial
-                    supporting = []
-                    for r in results[:3]:
-                        snippet = r.passage[:300] + ("…" if len(r.passage) > 300 else "")
-                        supporting.append(f"**{r.source['title']}:** {snippet}")
-                    support_text = "\n\n".join(supporting)
-                    return (
-                        f"**{generated}**\n\n"
-                        f"---\n\n"
-                        f"**Supporting passages:**\n\n{support_text}\n\n"
-                        f"---\n{self._source_footer(results)}"
-                    )
+                    return generated
             except Exception as exc:
                 logger.warning("flan-t5 generation failed: %s", exc)
 
-        # Extractive fallback — show full top passages
+        # Extractive fallback — return the best passage text directly
         best = results[0]
-        answer = f"**Based on the Wikipedia article '{article_title}':**\n\n{best.passage}"
+        answer = best.passage
         if len(results) > 1:
-            answer += "\n\n**Additional context:**"
+            extras = []
             for r in results[1:3]:
                 snippet = r.passage[:300] + ("…" if len(r.passage) > 300 else "")
-                answer += f"\n\n- {snippet}"
-        return answer + f"\n\n---\n{self._source_footer(results)}"
+                extras.append(snippet)
+            if extras:
+                answer += "\n\n" + "\n\n".join(extras)
+        return answer
 
     # ------------------------------------------------------------------
     # OpenAI
@@ -233,8 +216,7 @@ class AnswerGenerator:
             max_tokens=512,
             temperature=0.3,
         )
-        answer = resp.choices[0].message.content.strip()
-        return f"{answer}\n\n---\n{self._source_footer(results)}"
+        return resp.choices[0].message.content.strip()
 
     def _openai_stream(
         self, query: str, context: str, results: List[SearchResult]
@@ -258,7 +240,6 @@ class AnswerGenerator:
             delta = chunk.choices[0].delta.content
             if delta:
                 yield delta, False
-        yield f"\n\n---\n{self._source_footer(results)}", False
         yield "", True
 
     # ------------------------------------------------------------------
@@ -277,8 +258,7 @@ class AnswerGenerator:
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": f"Question: {query}\n\nWikipedia Passages:\n{context}\n\nAnswer:"}],
         )
-        answer = msg.content[0].text.strip()
-        return f"{answer}\n\n---\n{self._source_footer(results)}"
+        return msg.content[0].text.strip()
 
     def _anthropic_stream(
         self, query: str, context: str, results: List[SearchResult]
@@ -296,5 +276,4 @@ class AnswerGenerator:
         ) as stream:
             for text in stream.text_stream:
                 yield text, False
-        yield f"\n\n---\n{self._source_footer(results)}", False
         yield "", True

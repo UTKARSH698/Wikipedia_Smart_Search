@@ -1,226 +1,195 @@
-import { useState } from "react";
-
-export default function Sidebar({
-  username,
-  history,
-  historyLoading,
-  settings,
-  onSettingsChange,
-  onHistoryClick,
-  onSignIn,
-  onSignOut,
-  open,
-  onClose,
-}) {
-  const [tab, setTab] = useState("history"); // "history" | "settings"
-
+export default function Sidebar({ username, history, settings, onSettingsChange, onHistoryClick, onSignIn, onSignOut, onNewSearch, open, onClose, activeView, onViewChange }) {
   return (
     <>
-      {/* Backdrop (mobile) */}
+      {/* Mobile backdrop */}
       {open && (
-        <div
-          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 z-30 md:hidden" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose} />
       )}
 
-      {/* Panel */}
+      {/* Sidebar panel */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-gray-900 border-r border-gray-800
-                    flex flex-col z-30 transition-transform duration-200
-                    ${open ? "translate-x-0" : "-translate-x-full"}
-                    lg:static lg:translate-x-0`}
+        className={`fixed left-0 top-0 bottom-0 h-screen w-64 flex flex-col z-40 transition-transform duration-300
+          ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        style={{ background: "#0c0e14", borderRight: "1px solid rgba(16,185,129,0.15)", fontFamily: "Manrope, sans-serif" }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
-          <span className="text-white font-semibold text-sm">WikiQA</span>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-white transition-colors lg:hidden"
-          >
-            ✕
-          </button>
-        </div>
+        <div className="flex flex-col p-6 gap-4 h-full">
 
-        {/* Auth section */}
-        <div className="px-4 py-3 border-b border-gray-800">
-          {username ? (
-            <div className="flex items-center justify-between">
-              <span className="text-gray-300 text-sm truncate">
-                👤 {username}
-              </span>
-              <button
-                onClick={onSignOut}
-                className="text-xs text-gray-500 hover:text-red-400 transition-colors ml-2 flex-shrink-0"
-              >
-                Sign out
-              </button>
+          {/* Brand */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 flex items-center justify-center"
+                 style={{ background: "rgba(16,185,129,0.2)", borderRadius: "0.75rem" }}>
+              <span className="material-symbols-outlined" style={{ color: "#10b981", fontVariationSettings: "'FILL' 1" }}>library_books</span>
             </div>
-          ) : (
-            <button
-              onClick={onSignIn}
-              className="w-full bg-brand hover:bg-brand-dark text-white text-sm
-                         font-medium py-2 rounded-lg transition-colors"
-            >
-              Sign in / Register
-            </button>
-          )}
-        </div>
+            <div>
+              <h1 className="font-extrabold tracking-tighter" style={{ fontSize: "1.5rem", color: "#10b981", letterSpacing: "-0.02em" }}>WikiQA</h1>
+              <p className="uppercase tracking-widest font-label" style={{ fontSize: "0.6rem", color: "#64748b", letterSpacing: "0.12em" }}>Knowledge Hub</p>
+            </div>
+          </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-800">
-          {["history", "settings"].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors
-                ${tab === t
-                  ? "text-brand border-b-2 border-brand"
-                  : "text-gray-500 hover:text-gray-300"}`}
-            >
-              {t === "history" ? "📜 History" : "⚙️ Settings"}
-            </button>
-          ))}
-        </div>
+          {/* New Search */}
+          <button
+            onClick={() => { onNewSearch(); onClose(); }}
+            className="flex items-center justify-center gap-2 font-semibold transition-all hover:scale-[1.02] active:scale-95"
+            style={{
+              marginTop: "0.5rem",
+              padding: "0.75rem 1rem",
+              background: "rgba(16,185,129,0.1)",
+              color: "#10b981",
+              borderRadius: "9999px",
+              border: "1px solid rgba(16,185,129,0.2)",
+              fontSize: "0.875rem",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(16,185,129,0.2)"}
+            onMouseLeave={e => e.currentTarget.style.background = "rgba(16,185,129,0.1)"}
+          >
+            <span className="material-symbols-outlined text-sm">add</span>
+            New Search
+          </button>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {tab === "history" ? (
-            <HistoryTab
-              username={username}
-              history={history}
-              loading={historyLoading}
-              onHistoryClick={onHistoryClick}
-              onSignIn={onSignIn}
-            />
-          ) : (
-            <SettingsTab settings={settings} onChange={onSettingsChange} />
-          )}
+          {/* Nav */}
+          <nav className="flex-1 py-2 space-y-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+            <div className="px-3 py-2 uppercase tracking-widest font-semibold"
+                 style={{ fontSize: "0.625rem", color: "#64748b", letterSpacing: "0.12em" }}>
+              Navigation
+            </div>
+
+            {[
+              { view: "chat",    icon: "chat",    label: "Research" },
+              { view: "history", icon: "history", label: "History"  },
+              { view: "settings",icon: "settings",label: "Settings" },
+            ].map(({ view, icon, label }) => {
+              const active = activeView === view;
+              return (
+                <button
+                  key={view}
+                  onClick={() => { onViewChange(view); onClose(); }}
+                  className="w-full flex items-center gap-3 px-3 py-3 transition-all"
+                  style={{
+                    borderRadius: "9999px",
+                    color: active ? "#10b981" : "#aaaab3",
+                    fontWeight: active ? "700" : "600",
+                    background: active ? "#11131a" : "transparent",
+                    borderRight: active ? "2px solid #10b981" : "none",
+                    fontSize: "0.875rem",
+                  }}
+                  onMouseEnter={e => { if (!active) { e.currentTarget.style.color = "#10b981"; e.currentTarget.style.background = "#171921"; } }}
+                  onMouseLeave={e => { if (!active) { e.currentTarget.style.color = "#aaaab3"; e.currentTarget.style.background = "transparent"; } }}
+                >
+                  <span className="material-symbols-outlined"
+                        style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>{icon}</span>
+                  {label}
+                </button>
+              );
+            })}
+
+            {/* Recent archive */}
+            <div className="pt-4">
+              <div className="px-3 py-2 uppercase tracking-widest font-semibold"
+                   style={{ fontSize: "0.625rem", color: "#64748b", letterSpacing: "0.12em" }}>
+                Recent Archive
+              </div>
+              {history?.length ? (
+                history.slice(0, 5).map((item, i) => (
+                  <button
+                    key={item.id ?? i}
+                    onClick={() => { onHistoryClick(item.query); onClose(); }}
+                    className="w-full text-left px-3 py-2 truncate transition-all"
+                    style={{ fontSize: "0.75rem", color: "#aaaab3", borderRadius: "9999px" }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "#10b981"; e.currentTarget.style.background = "#171921"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "#aaaab3"; e.currentTarget.style.background = "transparent"; }}
+                  >
+                    {item.query}
+                  </button>
+                ))
+              ) : (
+                <p className="px-3 py-2 italic" style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                  No recent research...
+                </p>
+              )}
+            </div>
+          </nav>
+
+          {/* Footer links */}
+          <div className="pt-4 flex flex-col gap-1" style={{ borderTop: "1px solid rgba(16,185,129,0.1)" }}>
+            {username ? (
+              <div className="flex items-center gap-3 px-3 py-2" style={{ borderRadius: "9999px" }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                     style={{ background: "rgba(16,185,129,0.15)" }}>
+                  <span className="material-symbols-outlined text-base" style={{ color: "#10b981" }}>person</span>
+                </div>
+                <span className="text-sm font-semibold truncate flex-1" style={{ color: "#e2e2eb" }}>{username}</span>
+                <button onClick={onSignOut} title="Sign out"
+                  style={{ color: "#64748b" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#ffb4ab"}
+                  onMouseLeave={e => e.currentTarget.style.color = "#64748b"}>
+                  <span className="material-symbols-outlined text-base">logout</span>
+                </button>
+              </div>
+            ) : (
+              <SideFooterBtn icon="account_circle" label="Sign In" onClick={onSignIn} />
+            )}
+            <SideFooterBtn icon="help"   label="Help"    />
+            <SideFooterBtn icon="shield" label="Privacy" />
+          </div>
+
         </div>
       </aside>
     </>
   );
 }
 
-function HistoryTab({ username, history, loading, onHistoryClick, onSignIn }) {
-  if (!username) {
-    return (
-      <div className="flex flex-col items-center justify-center h-40 px-4 text-center">
-        <p className="text-gray-500 text-sm">Sign in to view your query history.</p>
-        <button
-          onClick={onSignIn}
-          className="mt-3 text-brand text-sm hover:underline"
-        >
-          Sign in →
-        </button>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-20">
-        <span className="text-gray-500 text-sm">Loading…</span>
-      </div>
-    );
-  }
-
-  if (!history?.length) {
-    return (
-      <div className="flex items-center justify-center h-20 px-4">
-        <p className="text-gray-600 text-sm text-center">No history yet. Start asking!</p>
-      </div>
-    );
-  }
-
+function SideFooterBtn({ icon, label, onClick }) {
   return (
-    <ul className="py-2">
-      {history.map((item, i) => (
-        <li key={item.id ?? `${item.query}-${i}`}>
-          <button
-            onClick={() => onHistoryClick(item.query)}
-            className="w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors group"
-          >
-            <p className="text-gray-300 text-xs truncate group-hover:text-white">
-              {item.query}
-            </p>
-            <p className="text-gray-600 text-xs mt-0.5">
-              {new Date(item.created_at * 1000).toLocaleDateString()}
-            </p>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 py-2 transition-all"
+      style={{ borderRadius: "9999px", color: "#aaaab3", fontSize: "0.875rem" }}
+      onMouseEnter={e => { e.currentTarget.style.color = "#10b981"; e.currentTarget.style.background = "#171921"; }}
+      onMouseLeave={e => { e.currentTarget.style.color = "#aaaab3"; e.currentTarget.style.background = "transparent"; }}
+    >
+      <span className="material-symbols-outlined text-lg">{icon}</span>
+      {label}
+    </button>
   );
 }
 
-function SettingsTab({ settings, onChange }) {
+export function SettingsPanel({ settings, onChange }) {
   return (
-    <div className="p-4 space-y-5">
-      {/* top_k */}
-      <div>
-        <div className="flex justify-between items-center mb-1.5">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Passages (top_k)
-          </label>
-          <span className="text-xs text-brand font-mono">{settings.top_k}</span>
-        </div>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          step={1}
-          value={settings.top_k}
-          onChange={(e) => onChange("top_k", Number(e.target.value))}
-          className="w-full accent-brand"
-        />
-        <div className="flex justify-between text-xs text-gray-700 mt-0.5">
-          <span>1</span><span>10</span>
-        </div>
-      </div>
+    <div className="p-6 space-y-6 max-w-xl mx-auto pt-10">
+      <h2 className="font-headline font-bold text-xl" style={{ color: "#e2e2eb" }}>Search Settings</h2>
 
-      {/* num_articles */}
-      <div>
-        <div className="flex justify-between items-center mb-1.5">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Articles to fetch
-          </label>
-          <span className="text-xs text-brand font-mono">{settings.num_articles}</span>
+      {[
+        { key: "top_k", label: "Passages (top_k)", min: 1, max: 10 },
+        { key: "num_articles", label: "Articles to Fetch", min: 1, max: 5 },
+      ].map(({ key, label, min, max }) => (
+        <div key={key} className="p-5 space-y-3" style={{ background: "#11131a", borderRadius: "1rem" }}>
+          <div className="flex justify-between items-center">
+            <label className="font-label text-xs font-bold uppercase tracking-widest" style={{ color: "#aaaab3" }}>{label}</label>
+            <span className="font-label text-sm font-bold" style={{ color: "#10b981" }}>{settings[key]}</span>
+          </div>
+          <input type="range" min={min} max={max} step={1} value={settings[key]}
+            onChange={e => onChange(key, Number(e.target.value))}
+            className="w-full" style={{ accentColor: "#10b981" }} />
+          <div className="flex justify-between text-xs" style={{ color: "#64748b" }}>
+            <span>{min}</span><span>{max}</span>
+          </div>
         </div>
-        <input
-          type="range"
-          min={1}
-          max={5}
-          step={1}
-          value={settings.num_articles}
-          onChange={(e) => onChange("num_articles", Number(e.target.value))}
-          className="w-full accent-brand"
-        />
-        <div className="flex justify-between text-xs text-gray-700 mt-0.5">
-          <span>1</span><span>5</span>
-        </div>
-      </div>
+      ))}
 
-      {/* rerank toggle */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Cross-encoder rerank
-        </span>
-        <button
-          onClick={() => onChange("rerank", !settings.rerank)}
-          className={`relative w-10 h-5 rounded-full transition-colors
-            ${settings.rerank ? "bg-brand" : "bg-gray-700"}`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform
-              ${settings.rerank ? "translate-x-5" : "translate-x-0"}`}
-          />
+      <div className="p-5 flex items-center justify-between" style={{ background: "#11131a", borderRadius: "1rem" }}>
+        <div>
+          <p className="font-label text-xs font-bold uppercase tracking-widest" style={{ color: "#aaaab3" }}>Cross-encoder Rerank</p>
+          <p className="text-xs mt-1" style={{ color: "#64748b" }}>Higher accuracy, slightly slower</p>
+        </div>
+        <button onClick={() => onChange("rerank", !settings.rerank)}
+          className="relative w-12 h-6 rounded-full transition-colors"
+          style={{ background: settings.rerank ? "#10b981" : "#33343b" }}>
+          <span className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${settings.rerank ? "translate-x-7" : "translate-x-1"}`}
+                style={{ background: settings.rerank ? "#003924" : "#aaaab3" }} />
         </button>
       </div>
 
-      <p className="text-xs text-gray-600 pt-2 border-t border-gray-800">
-        Settings apply to the next query.
-      </p>
+      <p className="text-xs pt-2" style={{ color: "#64748b" }}>Settings apply to the next query.</p>
     </div>
   );
 }

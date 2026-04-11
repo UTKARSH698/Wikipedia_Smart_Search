@@ -1,151 +1,151 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import PassageCard from "./PassageCard";
-import RelatedTopics from "./RelatedTopics";
 
-/* Typing indicator shown while the backend is processing */
-export function TypingIndicator() {
-  return (
-    <div className="flex items-start gap-3 mb-4">
-      <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-sm flex-shrink-0">
-        📖
-      </div>
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-sm px-4 py-3">
-        <div className="flex gap-1 items-center h-5">
-          <span className="dot w-2 h-2 bg-gray-400 rounded-full" />
-          <span className="dot w-2 h-2 bg-gray-400 rounded-full" />
-          <span className="dot w-2 h-2 bg-gray-400 rounded-full" />
-        </div>
-      </div>
-    </div>
-  );
-}
+export default function ChatMessage({ msg, onTopicClick }) {
+  const [passagesOpen, setPassagesOpen] = useState(false);
 
-export default function ChatMessage({ msg, onSearch }) {
-  const [showPassages, setShowPassages] = useState(false);
-
-  /* User bubble */
   if (msg.role === "user") {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="bg-brand text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[75%] text-sm leading-relaxed">
-          {msg.content}
+      <div className="flex justify-end">
+        <div className="bg-surface-container-low text-on-surface px-6 py-4 rounded-2xl rounded-tr-none max-w-[85%] shadow-sm">
+          <p className="leading-relaxed">{msg.content}</p>
         </div>
       </div>
     );
   }
 
-  /* Streaming bubble — tokens arriving in real-time */
   if (msg.role === "streaming") {
     return (
-      <div className="flex items-start gap-3 mb-4">
-        <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-sm flex-shrink-0">
-          📖
-        </div>
-        <div className="bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-sm px-5 py-4 max-w-[85%]">
-          {/* Status text while pipeline runs */}
-          {msg.status && !msg.content && (
-            <p className="text-gray-500 text-xs italic animate-pulse">{msg.status}</p>
-          )}
-          {/* Incoming tokens */}
-          {msg.content ? (
-            <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed">
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
-              <span className="inline-block w-0.5 h-4 bg-gray-300 ml-0.5 animate-blink align-middle" />
-            </div>
-          ) : (
-            !msg.status && (
-              <div className="flex gap-1 items-center h-5">
-                <span className="dot w-2 h-2 bg-gray-400 rounded-full" />
-                <span className="dot w-2 h-2 bg-gray-400 rounded-full" />
-                <span className="dot w-2 h-2 bg-gray-400 rounded-full" />
-              </div>
-            )
-          )}
+      <div className="space-y-6">
+        <div className="flex items-start gap-4">
+          <div className="min-w-[40px] h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-on-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
+          </div>
+          <div className="flex-1 space-y-4">
+            <article className="answer-prose text-on-surface leading-loose space-y-3">
+              {msg.status && !msg.content && (
+                <div className="flex items-center gap-2 text-primary font-label text-sm">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span>{msg.status}</span>
+                </div>
+              )}
+              {msg.content && (
+                <div>
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <span className="cursor-blink" />
+                </div>
+              )}
+            </article>
+          </div>
         </div>
       </div>
     );
   }
 
-  /* Error bubble */
   if (msg.role === "error") {
     return (
-      <div className="flex items-start gap-3 mb-4">
-        <div className="w-8 h-8 rounded-full bg-red-900/40 flex items-center justify-center text-sm flex-shrink-0">⚠️</div>
-        <div className="bg-red-950/40 border border-red-800 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%] text-sm text-red-300">
+      <div className="flex items-start gap-4">
+        <div className="min-w-[40px] h-10 rounded-full bg-error/20 flex items-center justify-center flex-shrink-0">
+          <span className="material-symbols-outlined text-error text-xl">error</span>
+        </div>
+        <div className="bg-error/10 border border-error/20 rounded-2xl px-5 py-4 text-error text-sm max-w-[85%]">
           {msg.content}
         </div>
       </div>
     );
   }
 
-  /* Assistant bubble — full response */
-  const { answer, primary_title, primary_url, passages, scores, sources, related_topics, cached, latency_ms, query } = msg.data;
+  // Assistant message
+  const passages = msg.passages || [];
+  const sources = msg.sources || [];
+  const relatedTopics = msg.related_topics || [];
 
   return (
-    <div className="flex items-start gap-3 mb-6">
-      {/* Avatar */}
-      <div className="w-8 h-8 rounded-full bg-brand/20 flex items-center justify-center text-sm flex-shrink-0">📖</div>
-
-      <div className="flex-1 min-w-0 space-y-3">
-        {/* Answer card */}
-        <div className="bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-sm px-5 py-4">
-          {/* Meta row */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <a href={primary_url} target="_blank" rel="noreferrer"
-               className="text-xs text-gray-400 hover:text-brand transition-colors">
-              📰 {primary_title}
-            </a>
-            {cached && (
-              <span className="bg-green-900/40 text-green-400 text-xs px-2 py-0.5 rounded-full border border-green-800/50">
-                ⚡ cached
-              </span>
-            )}
-            {latency_ms && (
-              <span className="text-xs text-gray-600 ml-auto">
-                {(latency_ms / 1000).toFixed(1)}s
-              </span>
-            )}
-          </div>
-
-          {/* Answer text */}
-          <div className="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed">
-            <ReactMarkdown>{answer}</ReactMarkdown>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-start gap-4">
+        {/* Avatar */}
+        <div className="min-w-[40px] h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+          <span className="material-symbols-outlined text-on-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
         </div>
 
-        {/* Related topics */}
-        {related_topics?.length > 0 && (
-          <RelatedTopics topics={related_topics} onSearch={onSearch} />
-        )}
-
-        {/* Passages toggle */}
-        {passages?.length > 0 && (
-          <div>
-            <button
-              onClick={() => setShowPassages(!showPassages)}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+        <div className="flex-1 space-y-5 min-w-0">
+          {/* Answer body */}
+          <article className="answer-prose text-on-surface leading-loose space-y-3 text-lg">
+            <ReactMarkdown
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    {children}
+                  </a>
+                ),
+                strong: ({ children }) => (
+                  <strong className="text-primary">{children}</strong>
+                ),
+              }}
             >
-              <span>{showPassages ? "▾" : "▸"}</span>
-              {showPassages ? "Hide" : "Show"} {passages.length} retrieved passages
-            </button>
+              {msg.content}
+            </ReactMarkdown>
+          </article>
 
-            {showPassages && (
-              <div className="mt-2 space-y-2">
-                {passages.map((p, i) => (
-                  <PassageCard
-                    key={i}
-                    rank={i + 1}
-                    passage={p}
-                    score={scores[i] ?? 0}
-                    source={sources[i] ?? { title: primary_title, url: primary_url }}
-                    query={query}
-                  />
+          {/* Sources footnote */}
+          {sources.length > 0 && (
+            <div className="pt-4 border-t border-outline-variant/15">
+              <p className="text-sm italic text-on-surface-variant flex items-center gap-2 flex-wrap">
+                <span className="material-symbols-outlined text-base text-primary">link</span>
+                Sources:{" "}
+                {sources.map((s, i) => (
+                  <span key={i}>
+                    <a href={s.url} target="_blank" rel="noopener noreferrer"
+                      className="text-primary hover:underline not-italic">{s.title}</a>
+                    {i < sources.length - 1 && ", "}
+                  </span>
                 ))}
-              </div>
-            )}
-          </div>
-        )}
+              </p>
+            </div>
+          )}
+
+          {/* Expandable passages */}
+          {passages.length > 0 && (
+            <div className="bg-surface-container-low rounded-xl overflow-hidden">
+              <button
+                onClick={() => setPassagesOpen(!passagesOpen)}
+                className="w-full flex items-center justify-between p-4 text-on-surface hover:bg-surface-container-high transition-colors group"
+              >
+                <span className="font-headline font-semibold text-sm">Show {passages.length} retrieved passages</span>
+                <span className={`material-symbols-outlined transition-transform ${passagesOpen ? "rotate-180" : ""}`}>expand_more</span>
+              </button>
+
+              {passagesOpen && (
+                <div className="p-4 space-y-3 bg-surface-container-lowest/50">
+                  {passages.map((p, i) => (
+                    <PassageCard key={i} passage={p} index={i} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Related topics */}
+          {relatedTopics.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              <span className="text-xs font-label text-outline uppercase tracking-widest block w-full mb-1">Related Archives</span>
+              {relatedTopics.map((topic, i) => (
+                <button key={i} onClick={() => onTopicClick?.(topic)}
+                  className="px-4 py-2 rounded-full border border-primary/20 hover:bg-primary/10 cursor-pointer transition-colors text-xs font-medium text-on-surface-variant hover:text-primary">
+                  {topic}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Latency badge */}
+          {msg.latency_ms && (
+            <p className="text-[10px] font-label text-outline uppercase tracking-widest">
+              {(msg.latency_ms / 1000).toFixed(1)}s · {msg.cached ? "cached" : "live"}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

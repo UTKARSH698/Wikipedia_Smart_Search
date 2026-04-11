@@ -1,38 +1,49 @@
 import { useState, useEffect, useRef } from "react";
-import { askStream, fetchHistory } from "./api";
+import { askStream, fetchHistory, login, register } from "./api";
 import ChatMessage from "./components/ChatMessage";
 import QueryInput from "./components/QueryInput";
-import Sidebar from "./components/Sidebar";
+import Sidebar, { SettingsPanel } from "./components/Sidebar";
 import AuthModal from "./components/AuthModal";
+import HistoryView from "./components/HistoryView";
 
 const LS_TOKEN = "wikiqa_token";
 const LS_USER  = "wikiqa_username";
 
+const SAMPLES = [
+  { icon: "science",          label: "What is the Fermi paradox?",      sub: "Explore the contradiction between the lack of evidence of extraterrestrial life." },
+  { icon: "psychology",       label: "Explain quantum entanglement",     sub: "Understand how particles remain connected even over vast distances." },
+  { icon: "account_balance",  label: "History of the Roman Empire",      sub: "Trace the rise and fall of one of history's most powerful civilizations." },
+  { icon: "flare",            label: "How do black holes form?",         sub: "Discover the cosmic life cycle of massive stars ending in singularity." },
+];
+
 export default function App() {
-  /* ── Auth ── */
-  const [token, setToken]       = useState(() => localStorage.getItem(LS_TOKEN) || "");
-  const [username, setUsername] = useState(() => localStorage.getItem(LS_USER)  || "");
-  const [showAuth, setShowAuth] = useState(false);
+  /* Auth */
+  const [token, setToken]         = useState(() => localStorage.getItem(LS_TOKEN) || "");
+  const [username, setUsername]   = useState(() => localStorage.getItem(LS_USER)  || "");
+  const [showAuth, setShowAuth]   = useState(false);
 
-  /* ── Chat ── */
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading]   = useState(false);
+  /* Chat */
+  const [messages, setMessages]   = useState([]);
+  const [loading, setLoading]     = useState(false);
 
-  /* ── Sidebar ── */
+  /* Navigation */
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [history, setHistory]         = useState([]);
+  const [activeView, setActiveView]   = useState("chat"); // chat | history | settings
+
+  /* History */
+  const [history, setHistory]           = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  /* ── Settings ── */
+  /* Settings */
   const [settings, setSettings] = useState({ top_k: 5, num_articles: 2, rerank: true });
 
-  /* ── Scroll anchor ── */
+  /* Scroll anchor */
   const bottomRef = useRef(null);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages]);
 
-  /* ── Load history when token changes ── */
+  /* Load history */
   useEffect(() => {
     if (!token) { setHistory([]); return; }
     setHistoryLoading(true);
@@ -43,33 +54,28 @@ export default function App() {
   }, [token]);
 
   /* ── Handlers ── */
-  function handleAuth(newToken, newUsername) {
-    setToken(newToken);
-    setUsername(newUsername);
-    localStorage.setItem(LS_TOKEN, newToken);
-    localStorage.setItem(LS_USER, newUsername);
-    setShowAuth(false);
+  async function handleAuth(mode, uname, pw) {
+    const fn = mode === "login" ? login : register;
+    const data = await fn(uname, pw);
+    setToken(data.access_token);
+    setUsername(data.username);
+    localStorage.setItem(LS_TOKEN, data.access_token);
+    localStorage.setItem(LS_USER, data.username);
   }
 
   function handleSignOut() {
-    setToken("");
-    setUsername("");
+    setToken(""); setUsername("");
     localStorage.removeItem(LS_TOKEN);
     localStorage.removeItem(LS_USER);
     setHistory([]);
   }
 
-  function handleSettingsChange(key, value) {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-  }
-
   async function handleSubmit(query) {
-    /* Append user message */
+    setActiveView("chat");
     setMessages((prev) => [...prev, { role: "user", content: query }]);
     setLoading(true);
 
     const msgId = Date.now();
-    /* Add a streaming placeholder */
     setMessages((prev) => [...prev, { role: "streaming", id: msgId, content: "", status: "" }]);
 
     try {
@@ -80,19 +86,23 @@ export default function App() {
         token,
       })) {
         if (chunk.type === "status") {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === msgId ? { ...m, status: chunk.content } : m))
-          );
+          setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, status: chunk.content } : m));
         } else if (chunk.type === "token") {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === msgId ? { ...m, content: m.content + chunk.content, status: "" } : m
-            )
-          );
+          setMessages((prev) => prev.map((m) =>
+            m.id === msgId ? { ...m, content: m.content + chunk.content, status: "" } : m
+          ));
         } else if (chunk.type === "done") {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === msgId ? { role: "assistant", data: chunk } : m))
-          );
+          setMessages((prev) => prev.map((m) =>
+            m.id === msgId ? {
+              role: "assistant",
+              content: chunk.answer,
+              passages: chunk.passages,
+              sources: chunk.sources,
+              related_topics: chunk.related_topics,
+              latency_ms: chunk.latency_ms,
+              cached: chunk.cached,
+            } : m
+          ));
           if (token) fetchHistory(token).then(setHistory).catch(() => {});
         } else if (chunk.type === "error") {
           setMessages((prev) =>
@@ -102,122 +112,154 @@ export default function App() {
       }
     } catch (err) {
       setMessages((prev) =>
-        prev
-          .filter((m) => m.id !== msgId)
-          .concat({ role: "error", content: err.message || "Something went wrong." })
+        prev.filter((m) => m.id !== msgId).concat({ role: "error", content: err.message || "Something went wrong." })
       );
     } finally {
       setLoading(false);
     }
   }
 
+  function handleNewSearch() {
+    setMessages([]);
+    setActiveView("chat");
+  }
+
   /* ── Render ── */
   return (
-    <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
+    <div className="flex h-screen bg-background text-on-surface overflow-hidden">
+
       {/* Sidebar */}
       <Sidebar
         username={username}
         history={history}
-        historyLoading={historyLoading}
         settings={settings}
-        onSettingsChange={handleSettingsChange}
-        onHistoryClick={(q) => { setSidebarOpen(false); handleSubmit(q); }}
+        onSettingsChange={(k, v) => setSettings((p) => ({ ...p, [k]: v }))}
+        onHistoryClick={(q) => { handleSubmit(q); setSidebarOpen(false); }}
         onSignIn={() => setShowAuth(true)}
         onSignOut={handleSignOut}
+        onNewSearch={handleNewSearch}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        activeView={activeView}
+        onViewChange={setActiveView}
       />
 
-      {/* Main */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Top bar */}
-        <header className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 flex-shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="w-9 h-9 rounded-xl bg-gray-800 hover:bg-gray-700 flex items-center
-                       justify-center text-gray-400 transition-colors lg:hidden"
-          >
-            ☰
-          </button>
+      {/* Main stage */}
+      <div className="flex flex-col flex-1 min-w-0 md:ml-64">
 
+        {/* Mobile top bar */}
+        <header className="fixed top-0 right-0 left-0 md:left-64 h-16 z-20 bg-background/80 backdrop-blur-xl border-b border-primary/10 flex items-center justify-between px-6 md:hidden">
           <div className="flex items-center gap-2">
-            <span className="text-lg">📖</span>
-            <h1 className="font-bold text-white">Wikipedia QA</h1>
-            <span className="hidden sm:block text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
-              RAG · flan-t5
-            </span>
+            <button onClick={() => setSidebarOpen(true)} className="text-primary">
+              <span className="material-symbols-outlined">menu</span>
+            </button>
+            <h1 className="text-xl font-extrabold text-primary font-headline">WikiQA</h1>
           </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            {username ? (
-              <span className="text-xs text-gray-400 hidden sm:block">👤 {username}</span>
-            ) : (
-              <button
-                onClick={() => setShowAuth(true)}
-                className="text-xs bg-brand hover:bg-brand-dark text-white px-3 py-1.5
-                           rounded-lg transition-colors"
-              >
-                Sign in
-              </button>
-            )}
-          </div>
+          <button onClick={() => username ? null : setShowAuth(true)} className="text-primary">
+            <span className="material-symbols-outlined">account_circle</span>
+          </button>
         </header>
 
-        {/* Chat window */}
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          {messages.length === 0 && !loading && (
-            <EmptyState onSample={handleSubmit} />
-          )}
-
-          {messages.map((msg, i) => (
-            <ChatMessage
-              key={i}
-              msg={msg}
-              onSearch={handleSubmit}
+        {/* Content area */}
+        {activeView === "settings" ? (
+          <div className="flex-1 overflow-y-auto pt-16 md:pt-0">
+            <SettingsPanel settings={settings} onChange={(k, v) => setSettings((p) => ({ ...p, [k]: v }))} />
+          </div>
+        ) : activeView === "history" ? (
+          <div className="flex-1 overflow-y-auto pt-16 md:pt-0">
+            <HistoryView
+              history={history}
+              loading={historyLoading}
+              username={username}
+              onQueryClick={(q) => { handleSubmit(q); setActiveView("chat"); }}
+              onSignIn={() => setShowAuth(true)}
+              onNewSearch={() => { handleNewSearch(); }}
             />
-          ))}
+          </div>
+        ) : (
+          /* Chat view */
+          <div className="flex-1 relative overflow-hidden">
+            {/* Background decoration */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20 z-0">
+              <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full" />
+              <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-tertiary/5 blur-[120px] rounded-full" />
+            </div>
 
-          <div ref={bottomRef} />
-        </div>
+            {/* Chat scroll area */}
+            <div className="h-full overflow-y-auto px-4 md:px-6 pt-20 md:pt-12 pb-48 relative z-10">
+              {messages.length === 0 && !loading ? (
+                <EmptyState onSample={handleSubmit} />
+              ) : (
+                <div className="max-w-3xl mx-auto space-y-10">
+                  {messages.map((msg, i) => (
+                    <ChatMessage key={i} msg={msg} onTopicClick={handleSubmit} />
+                  ))}
+                  <div ref={bottomRef} />
+                </div>
+              )}
+            </div>
 
-        {/* Input */}
-        <QueryInput onSubmit={handleSubmit} loading={loading} />
+            {/* Pinned input */}
+            <QueryInput onSubmit={handleSubmit} loading={loading} />
+          </div>
+        )}
       </div>
 
       {/* Auth modal */}
       {showAuth && (
-        <AuthModal onAuth={handleAuth} onClose={() => setShowAuth(false)} />
+        <AuthModal
+          onClose={() => setShowAuth(false)}
+          onAuth={handleAuth}
+        />
       )}
     </div>
   );
 }
 
 function EmptyState({ onSample }) {
-  const featured = [
-    "What is Artificial Intelligence?",
-    "How do black holes form?",
-    "Who was Nikola Tesla?",
-    "Explain Quantum Computing",
-  ];
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-full py-12 px-4 text-center">
-      <div className="text-5xl mb-4">📖</div>
-      <h2 className="text-2xl font-bold text-white mb-2">Wikipedia Smart QA</h2>
-      <p className="text-gray-500 text-sm max-w-md mb-8">
-        Ask any question. The system retrieves relevant Wikipedia passages and
-        synthesizes an answer using a local language model.
-      </p>
+    <div className="max-w-3xl w-full mx-auto flex flex-col items-center text-center space-y-12 pb-32 px-4">
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-        {featured.map((q) => (
+      {/* Archive Ready badge */}
+      <div className="inline-flex items-center gap-2 px-3 py-1 font-label text-xs tracking-wider uppercase"
+           style={{ background: "#1e1f26", borderRadius: "9999px", color: "#10b981" }}>
+        <span className="material-symbols-outlined text-sm">auto_awesome</span>
+        Archive Ready
+      </div>
+
+      {/* Hero headline */}
+      <h2 className="font-headline font-extrabold tracking-tighter leading-tight"
+          style={{ fontSize: "clamp(2.5rem, 6vw, 4rem)", letterSpacing: "-0.02em", color: "#e2e2eb" }}>
+        What would you like to <br />
+        <span style={{
+          background: "linear-gradient(to right, #10b981, #69f6b8)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}>
+          research today?
+        </span>
+      </h2>
+
+      {/* Sample question cards — pill shaped */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+        {SAMPLES.map((s) => (
           <button
-            key={q}
-            onClick={() => onSample(q)}
-            className="bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600
-                       text-gray-300 text-sm px-4 py-3 rounded-xl transition-colors text-left"
+            key={s.label}
+            onClick={() => onSample(s.label)}
+            className="group flex flex-col items-start text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+            style={{
+              background: "#11131a",
+              borderRadius: "9999px",
+              padding: "1.5rem",
+              border: "1px solid rgba(70,69,84,0.1)",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = "#1e1f26"}
+            onMouseLeave={e => e.currentTarget.style.background = "#11131a"}
           >
-            {q}
+            <span className="material-symbols-outlined mb-3 transition-opacity opacity-60 group-hover:opacity-100"
+                  style={{ color: "#10b981" }}>{s.icon}</span>
+            <span className="font-headline font-bold text-lg" style={{ color: "#e2e2eb" }}>{s.label}</span>
+            <span className="text-sm mt-1" style={{ color: "#aaaab3" }}>{s.sub}</span>
           </button>
         ))}
       </div>
