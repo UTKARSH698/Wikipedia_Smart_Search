@@ -26,7 +26,7 @@ A full-stack RAG (Retrieval-Augmented Generation) application that answers quest
 | **Token streaming** | `/ask/stream` SSE endpoint — status events + word-by-word tokens like ChatGPT |
 | **Multi-LLM** | `LLM_PROVIDER=local` (flan-t5-small) · `openai` (gpt-4o-mini) · `anthropic` (Claude Haiku) |
 | **Vector store** | `VECTOR_STORE=faiss` (default, local) · `pinecone` (serverless, cloud) |
-| **React chat UI** | Streaming bubbles, keyword highlighting, collapsible passages, related topics |
+| **React chat UI** | Premium dark "Emerald Nocturne" design — streaming bubbles, passage cards with scores, related topic chips, history bento grid |
 | **JWT auth** | Register/login, per-user query history in SQLite |
 | **Observability** | `/metrics/prometheus` + Prometheus + Grafana dashboard (docker-compose) |
 | **Evaluation** | Precision@k, MRR@k, p50/p95/p99 latency via `eval/evaluate.py` |
@@ -48,17 +48,17 @@ wiki/
 │   ├── embeddings.py       # Sentence-transformer singleton (all-MiniLM-L6-v2)
 │   ├── wikipedia_api.py    # Wikipedia fetch & disambiguation handling
 │   └── cache.py            # TTL in-memory response cache
-├── frontend_react/         # React 18 + Vite + Tailwind CSS
+├── frontend_react/         # React 18 + Vite + Tailwind CSS (Emerald Nocturne design)
 │   └── src/
-│       ├── App.jsx         # Root — streaming chat loop, JWT state, settings
+│       ├── App.jsx         # Root — streaming chat loop, JWT state, view routing
 │       ├── api.js          # askStream() async generator + ask/login/register/history
 │       └── components/
-│           ├── ChatMessage.jsx   # user / streaming / assistant / error bubbles
-│           ├── QueryInput.jsx    # Auto-resize textarea, sample queries
-│           ├── Sidebar.jsx       # History list + settings sliders
-│           ├── PassageCard.jsx   # Passage with score badge + keyword highlight
-│           ├── RelatedTopics.jsx # Clickable topic chips
-│           └── AuthModal.jsx     # Login / register modal
+│           ├── AuthModal.jsx     # Login / register modal (Screen 1)
+│           ├── ChatMessage.jsx   # User / streaming / assistant / error bubbles (Screen 3)
+│           ├── QueryInput.jsx    # Glass input bar with send button (Screen 3)
+│           ├── Sidebar.jsx       # Nav sidebar + SettingsPanel export (Screens 2–4)
+│           ├── PassageCard.jsx   # Passage card with score badge + source link
+│           └── HistoryView.jsx   # Bento-grid research history (Screen 4)
 ├── eval/
 │   └── evaluate.py         # CLI benchmark — Precision@k, MRR, latency
 ├── tests/
@@ -242,8 +242,9 @@ chmod +x ec2_setup.sh
   "answer": "Quantum computing uses quantum mechanical phenomena...",
   "primary_title": "Quantum computing",
   "primary_url": "https://en.wikipedia.org/wiki/Quantum_computing",
-  "passages": ["...", "..."],
-  "scores": [0.8921, 0.8543],
+  "passages": [
+    {"passage": "...", "score": 0.8921, "source": {"title": "Quantum computing", "url": "..."}}
+  ],
   "sources": [{"title": "Quantum computing", "url": "..."}],
   "related_topics": ["Qubit", "Superposition", "Quantum entanglement"],
   "cached": false,
@@ -260,7 +261,7 @@ data: {"type": "status",  "content": "Searching Wikipedia…"}
 data: {"type": "status",  "content": "Generating answer…"}
 data: {"type": "token",   "content": "Quantum "}
 data: {"type": "token",   "content": "computing "}
-data: {"type": "done",    "answer": "...", "passages": [...], ...}
+data: {"type": "done",    "answer": "...", "passages": [{"passage":"...","score":0.89,"source":{...}}], ...}
 ```
 
 The React frontend uses this endpoint by default for a ChatGPT-like streaming UX.
