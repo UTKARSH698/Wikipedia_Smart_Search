@@ -152,11 +152,17 @@ class TokenResponse(BaseModel):
     username: str
 
 
+class ConversationTurn(BaseModel):
+    role: str   # "user" | "assistant"
+    content: str
+
+
 class AskRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=300)
     top_k: int = Field(default=5, ge=1, le=10)
     num_articles: int = Field(default=2, ge=1, le=3)
     rerank: bool = Field(default=True)
+    history: list[ConversationTurn] = Field(default_factory=list)
 
     @field_validator("query")
     @classmethod
@@ -380,7 +386,8 @@ def ask(
         results = reranker.rerank(req.query, results)[: req.top_k]
     else:
         results = results[: req.top_k]
-    answer  = generator.generate(req.query, results, primary_title)
+    history = [{"role": t.role, "content": t.content} for t in req.history]
+    answer  = generator.generate(req.query, results, primary_title, history=history)
 
     latency_ms = (time.time() - t0) * 1000
 
@@ -476,7 +483,8 @@ def ask_stream(
 
         # Stream answer tokens
         full_answer = ""
-        for token, is_done in generator.stream_tokens(req.query, results, primary_title):
+        history = [{"role": t.role, "content": t.content} for t in req.history]
+        for token, is_done in generator.stream_tokens(req.query, results, primary_title, history=history):
             if not is_done:
                 full_answer += token
                 yield _sse({"type": "token", "content": token})

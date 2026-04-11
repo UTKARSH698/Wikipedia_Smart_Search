@@ -31,6 +31,7 @@ bcrypt==4.0.1             # passlib is incompatible with bcrypt>=4.1
 tf-keras>=2.16.0          # Required by transformers for flan-t5 on TF/Keras 3
 
 # ── LLM API providers (optional — install the one you use) ────────────────────
+groq>=0.9.0                    # pip install groq            (LLM_PROVIDER=groq) — FREE
 # openai>=1.30.0               # pip install openai          (LLM_PROVIDER=openai)
 # anthropic>=0.28.0            # pip install anthropic       (LLM_PROVIDER=anthropic)
 

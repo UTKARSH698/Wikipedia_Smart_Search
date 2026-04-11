@@ -54,9 +54,10 @@ export default function Sidebar({ username, history, settings, onSettingsChange,
             </div>
 
             {[
-              { view: "chat",    icon: "chat",    label: "Research" },
-              { view: "history", icon: "history", label: "History"  },
-              { view: "settings",icon: "settings",label: "Settings" },
+              { view: "chat",    icon: "chat",      label: "Research"  },
+              { view: "history", icon: "history",   label: "History"   },
+              { view: "eval",    icon: "bar_chart", label: "Benchmark" },
+              { view: "settings",icon: "settings",  label: "Settings"  },
             ].map(({ view, icon, label }) => {
               const active = activeView === view;
               return (

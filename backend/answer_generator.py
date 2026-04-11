@@ -1,10 +1,14 @@
 """
 Answer generation — supports multiple LLM providers.
 
-LLM_PROVIDER env var (default: "local"):
+LLM_PROVIDER env var (default: "groq"):
+  groq      — Groq Cloud (llama-3.3-70b, FREE tier, requires GROQ_API_KEY)
   local     — google/flan-t5-small (CPU, ~500 MB RAM, no API key needed)
   openai    — OpenAI Chat Completions (requires OPENAI_API_KEY)
   anthropic — Anthropic Messages API (requires ANTHROPIC_API_KEY)
+
+Groq is the recommended default — free, fast, and high quality.
+Get a free API key at: https://console.groq.com
 
 Streaming:
   stream_tokens() yields (word, is_done) tuples for SSE endpoints.
@@ -23,7 +27,7 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-LLM_PROVIDER     = os.getenv("LLM_PROVIDER", "local").lower()  # local | openai | anthropic
+LLM_PROVIDER     = os.getenv("LLM_PROVIDER", "groq").lower()   # groq | local | openai | anthropic
 GENERATOR_MODEL  = "google/flan-t5-small"
 ENABLE_GENERATOR = os.getenv("ENABLE_GENERATOR", "true").lower() == "true"
 MAX_NEW_TOKENS   = 256
@@ -53,15 +57,23 @@ class AnswerGenerator:
     # Public API
     # ------------------------------------------------------------------
 
-    def generate(self, query: str, results: List[SearchResult], article_title: str) -> str:
+    def generate(
+        self,
+        query: str,
+        results: List[SearchResult],
+        article_title: str,
+        history: List[dict] | None = None,
+    ) -> str:
         if not results:
             return "No relevant information was found for your query."
         context = self._build_context(results)
         try:
+            if LLM_PROVIDER == "groq":
+                return self._groq_answer(query, context, history)
             if LLM_PROVIDER == "openai":
-                return self._openai_answer(query, context, results)
+                return self._openai_answer(query, context, history)
             if LLM_PROVIDER == "anthropic":
-                return self._anthropic_answer(query, context, results)
+                return self._anthropic_answer(query, context, history)
         except Exception as exc:
             logger.warning("API provider '%s' failed, falling back to local: %s", LLM_PROVIDER, exc)
         return self._local_answer(query, context, article_title, results)
@@ -71,6 +83,7 @@ class AnswerGenerator:
         query: str,
         results: List[SearchResult],
         article_title: str,
+        history: List[dict] | None = None,
     ) -> Generator[Tuple[str, bool], None, None]:
         """
         Yield (token_str, is_done) pairs.
@@ -83,11 +96,14 @@ class AnswerGenerator:
 
         context = self._build_context(results)
         try:
+            if LLM_PROVIDER == "groq":
+                yield from self._groq_stream(query, context, history)
+                return
             if LLM_PROVIDER == "openai":
-                yield from self._openai_stream(query, context, results)
+                yield from self._openai_stream(query, context, history)
                 return
             if LLM_PROVIDER == "anthropic":
-                yield from self._anthropic_stream(query, context, results)
+                yield from self._anthropic_stream(query, context, history)
                 return
         except Exception as exc:
             logger.warning("API streaming failed, falling back to local: %s", exc)
@@ -99,6 +115,35 @@ class AnswerGenerator:
             chunk = word if i == len(words) - 1 else word + " "
             yield chunk, False
         yield "", True
+
+    # ------------------------------------------------------------------
+    # Message builder (shared by all API providers)
+    # ------------------------------------------------------------------
+
+    def _build_messages(
+        self,
+        query: str,
+        context: str,
+        history: List[dict] | None,
+    ) -> List[dict]:
+        """Build the messages array with optional conversation history."""
+        messages: List[dict] = []
+        # Inject prior turns (role: user/assistant)
+        for turn in (history or []):
+            role = turn.get("role")
+            content = turn.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+        # Current question with fresh Wikipedia context
+        messages.append({
+            "role": "user",
+            "content": (
+                f"Question: {query}\n\n"
+                f"Wikipedia Passages:\n{context}\n\n"
+                "Answer:"
+            ),
+        })
+        return messages
 
     # ------------------------------------------------------------------
     # Context building
@@ -198,10 +243,49 @@ class AnswerGenerator:
         return answer
 
     # ------------------------------------------------------------------
+    # Groq (FREE — llama-3.3-70b)
+    # ------------------------------------------------------------------
+
+    def _groq_answer(self, query: str, context: str, history: List[dict] | None) -> str:
+        from groq import Groq
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError("GROQ_API_KEY is not set — get a free key at https://console.groq.com")
+        client = Groq(api_key=api_key)
+        resp = client.chat.completions.create(
+            model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self._build_messages(query, context, history),
+            max_tokens=512,
+            temperature=0.3,
+        )
+        return resp.choices[0].message.content.strip()
+
+    def _groq_stream(
+        self, query: str, context: str, history: List[dict] | None
+    ) -> Generator[Tuple[str, bool], None, None]:
+        from groq import Groq
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError("GROQ_API_KEY is not set — get a free key at https://console.groq.com")
+        client = Groq(api_key=api_key)
+        stream = client.chat.completions.create(
+            model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self._build_messages(query, context, history),
+            max_tokens=512,
+            temperature=0.3,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta, False
+        yield "", True
+
+    # ------------------------------------------------------------------
     # OpenAI
     # ------------------------------------------------------------------
 
-    def _openai_answer(self, query: str, context: str, results: List[SearchResult]) -> str:
+    def _openai_answer(self, query: str, context: str, history: List[dict] | None) -> str:
         from openai import OpenAI
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -209,17 +293,14 @@ class AnswerGenerator:
         client = OpenAI(api_key=api_key)
         resp = client.chat.completions.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"Question: {query}\n\nWikipedia Passages:\n{context}\n\nAnswer:"},
-            ],
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self._build_messages(query, context, history),
             max_tokens=512,
             temperature=0.3,
         )
         return resp.choices[0].message.content.strip()
 
     def _openai_stream(
-        self, query: str, context: str, results: List[SearchResult]
+        self, query: str, context: str, history: List[dict] | None
     ) -> Generator[Tuple[str, bool], None, None]:
         from openai import OpenAI
         api_key = os.getenv("OPENAI_API_KEY")
@@ -228,10 +309,7 @@ class AnswerGenerator:
         client = OpenAI(api_key=api_key)
         stream = client.chat.completions.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"Question: {query}\n\nWikipedia Passages:\n{context}\n\nAnswer:"},
-            ],
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self._build_messages(query, context, history),
             max_tokens=512,
             temperature=0.3,
             stream=True,
@@ -246,7 +324,7 @@ class AnswerGenerator:
     # Anthropic
     # ------------------------------------------------------------------
 
-    def _anthropic_answer(self, query: str, context: str, results: List[SearchResult]) -> str:
+    def _anthropic_answer(self, query: str, context: str, history: List[dict] | None) -> str:
         import anthropic
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
@@ -256,12 +334,12 @@ class AnswerGenerator:
             model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
             max_tokens=512,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": f"Question: {query}\n\nWikipedia Passages:\n{context}\n\nAnswer:"}],
+            messages=self._build_messages(query, context, history),
         )
         return msg.content[0].text.strip()
 
     def _anthropic_stream(
-        self, query: str, context: str, results: List[SearchResult]
+        self, query: str, context: str, history: List[dict] | None
     ) -> Generator[Tuple[str, bool], None, None]:
         import anthropic
         api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -272,7 +350,7 @@ class AnswerGenerator:
             model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
             max_tokens=512,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": f"Question: {query}\n\nWikipedia Passages:\n{context}\n\nAnswer:"}],
+            messages=self._build_messages(query, context, history),
         ) as stream:
             for text in stream.text_stream:
                 yield text, False

@@ -1,5 +1,8 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import PassageCard from "./PassageCard";
 
 export default function ChatMessage({ msg, onTopicClick }) {
@@ -32,7 +35,7 @@ export default function ChatMessage({ msg, onTopicClick }) {
               )}
               {msg.content && (
                 <div>
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown>
                   <span className="cursor-blink" />
                 </div>
               )}
@@ -73,6 +76,8 @@ export default function ChatMessage({ msg, onTopicClick }) {
           {/* Answer body */}
           <article className="answer-prose text-on-surface leading-loose space-y-3 text-lg">
             <ReactMarkdown
+              remarkPlugins={[remarkMath]}
+              rehypePlugins={[rehypeKatex]}
               components={{
                 a: ({ href, children }) => (
                   <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">

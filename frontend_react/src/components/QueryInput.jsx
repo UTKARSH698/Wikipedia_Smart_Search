@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 
 const MAX = 300;
 
-export default function QueryInput({ onSubmit, loading }) {
+export default function QueryInput({ onSubmit, loading, onAbort }) {
   const [text, setText] = useState("");
   const inputRef = useRef(null);
 
@@ -52,27 +52,34 @@ export default function QueryInput({ onSubmit, loading }) {
             >
               <span className="material-symbols-outlined">attach_file</span>
             </button>
-            <button
-              onClick={submit}
-              disabled={!text.trim() || loading || text.length > MAX}
-              className="flex items-center justify-center transition-all hover:shadow-lg active:scale-100 disabled:opacity-40"
-              style={{
-                width: "3rem",
-                height: "3rem",
-                borderRadius: "0.75rem",
-                background: "#69f6b8",
-                color: "#003923",
-                flexShrink: 0,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 20px rgba(105,246,184,0.2)"; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; }}
-            >
-              {loading ? (
-                <span className="material-symbols-outlined text-xl animate-spin">progress_activity</span>
-              ) : (
+            {loading ? (
+              <button
+                onClick={onAbort}
+                title="Stop generating"
+                className="flex items-center justify-center transition-all active:scale-95"
+                style={{
+                  width: "3rem", height: "3rem", borderRadius: "0.75rem",
+                  background: "rgba(255,180,171,0.15)", color: "#ffb4ab", flexShrink: 0,
+                  border: "1px solid rgba(255,180,171,0.3)",
+                }}
+              >
+                <span className="material-symbols-outlined text-xl">stop</span>
+              </button>
+            ) : (
+              <button
+                onClick={submit}
+                disabled={!text.trim() || text.length > MAX}
+                className="flex items-center justify-center transition-all hover:shadow-lg active:scale-100 disabled:opacity-40"
+                style={{
+                  width: "3rem", height: "3rem", borderRadius: "0.75rem",
+                  background: "#69f6b8", color: "#003923", flexShrink: 0,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 20px rgba(105,246,184,0.2)"; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; }}
+              >
                 <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
-              )}
-            </button>
+              </button>
+            )}
           </div>
         </div>
       </div>

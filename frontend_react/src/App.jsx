@@ -5,6 +5,7 @@ import QueryInput from "./components/QueryInput";
 import Sidebar, { SettingsPanel } from "./components/Sidebar";
 import AuthModal from "./components/AuthModal";
 import HistoryView from "./components/HistoryView";
+import EvalView from "./components/EvalView";
 
 const LS_TOKEN = "wikiqa_token";
 const LS_USER  = "wikiqa_username";
@@ -25,6 +26,7 @@ export default function App() {
   /* Chat */
   const [messages, setMessages]   = useState([]);
   const [loading, setLoading]     = useState(false);
+  const abortRef                  = useRef(null);
 
   /* Navigation */
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -70,10 +72,26 @@ export default function App() {
     setHistory([]);
   }
 
+  function handleAbort() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    setMessages((prev) => prev.filter((m) => m.role !== "streaming"));
+  }
+
   async function handleSubmit(query) {
     setActiveView("chat");
+
+    // Build conversation history from existing completed messages
+    const history = messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [...prev, { role: "user", content: query }]);
     setLoading(true);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const msgId = Date.now();
     setMessages((prev) => [...prev, { role: "streaming", id: msgId, content: "", status: "" }]);
@@ -84,6 +102,8 @@ export default function App() {
         num_articles: settings.num_articles,
         rerank: settings.rerank,
         token,
+        history,
+        signal: controller.signal,
       })) {
         if (chunk.type === "status") {
           setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, status: chunk.content } : m));
@@ -111,10 +131,13 @@ export default function App() {
         }
       }
     } catch (err) {
-      setMessages((prev) =>
-        prev.filter((m) => m.id !== msgId).concat({ role: "error", content: err.message || "Something went wrong." })
-      );
+      if (err.name !== "AbortError") {
+        setMessages((prev) =>
+          prev.filter((m) => m.id !== msgId).concat({ role: "error", content: err.message || "Something went wrong." })
+        );
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   }
@@ -165,6 +188,10 @@ export default function App() {
           <div className="flex-1 overflow-y-auto pt-16 md:pt-0">
             <SettingsPanel settings={settings} onChange={(k, v) => setSettings((p) => ({ ...p, [k]: v }))} />
           </div>
+        ) : activeView === "eval" ? (
+          <div className="flex-1 overflow-y-auto pt-16 md:pt-0">
+            <EvalView />
+          </div>
         ) : activeView === "history" ? (
           <div className="flex-1 overflow-y-auto pt-16 md:pt-0">
             <HistoryView
@@ -200,7 +227,7 @@ export default function App() {
             </div>
 
             {/* Pinned input */}
-            <QueryInput onSubmit={handleSubmit} loading={loading} />
+            <QueryInput onSubmit={handleSubmit} loading={loading} onAbort={handleAbort} />
           </div>
         )}
       </div>

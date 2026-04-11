@@ -27,11 +27,12 @@ export async function ask(query, { top_k = 5, num_articles = 2, rerank = true, t
  *   { type: "done",    answer, passages, scores, ... }
  *   { type: "error",   content: "..." }
  */
-export async function* askStream(query, { top_k = 5, num_articles = 2, rerank = true, token = "" } = {}) {
+export async function* askStream(query, { top_k = 5, num_articles = 2, rerank = true, token = "", history = [], signal = null } = {}) {
   const res = await fetch(`${BASE}/ask/stream`, {
     method: "POST",
     headers: authHeaders(token),
-    body: JSON.stringify({ query, top_k, num_articles, rerank }),
+    body: JSON.stringify({ query, top_k, num_articles, rerank, history }),
+    signal,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
