@@ -10,7 +10,7 @@ A full-stack RAG (Retrieval-Augmented Generation) application that answers quest
 └─────────────────┘  token/done  │  3. Encode — sentence-transformers bi-encoder  │
                                   │  4. Vector search — FAISS  or  Pinecone        │
                                   │  5. Cross-encoder re-ranking                   │
-                                  │  6. LLM answer — flan-t5 / OpenAI / Anthropic │
+                                  │  6. LLM answer — Groq / OpenAI / Anthropic     │
                                   │  7. TTL cache · Prometheus metrics             │
                                   └──────────────────────────────────────────────┘
 ```
@@ -24,7 +24,10 @@ A full-stack RAG (Retrieval-Augmented Generation) application that answers quest
 | **RAG pipeline** | Bi-encoder retrieval → cross-encoder re-ranking → LLM generation |
 | **Multi-article** | Fetches 1–5 Wikipedia articles, merges passages with per-source tracking |
 | **Token streaming** | `/ask/stream` SSE endpoint — status events + word-by-word tokens like ChatGPT |
-| **Multi-LLM** | `LLM_PROVIDER=local` (flan-t5-small) · `openai` (gpt-4o-mini) · `anthropic` (Claude Haiku) |
+| **Multi-LLM** | `LLM_PROVIDER=groq` (llama-3.3-70b, **free**) · `openai` · `anthropic` · `local` (flan-t5-small, no key) |
+| **Conversation memory** | Full multi-turn context — prior Q&A injected into each LLM request |
+| **Abort streaming** | Stop button cancels in-flight SSE stream instantly |
+| **LaTeX rendering** | Inline `$...$` and block `$$...$$` math rendered via KaTeX |
 | **Vector store** | `VECTOR_STORE=faiss` (default, local) · `pinecone` (serverless, cloud) |
 | **React chat UI** | Premium dark "Emerald Nocturne" design — streaming bubbles, passage cards with scores, related topic chips, history bento grid |
 | **JWT auth** | Register/login, per-user query history in SQLite |
@@ -58,7 +61,8 @@ wiki/
 │           ├── QueryInput.jsx    # Glass input bar with send button (Screen 3)
 │           ├── Sidebar.jsx       # Nav sidebar + SettingsPanel export (Screens 2–4)
 │           ├── PassageCard.jsx   # Passage card with score badge + source link
-│           └── HistoryView.jsx   # Bento-grid research history (Screen 4)
+│           ├── HistoryView.jsx   # Bento-grid research history (Screen 4)
+│           └── EvalView.jsx      # Benchmark page — Precision@k, MRR, latency
 ├── eval/
 │   └── evaluate.py         # CLI benchmark — Precision@k, MRR, latency
 ├── tests/
@@ -91,7 +95,7 @@ wiki/
 | 3 | `embeddings.py` | Encodes passages with `all-MiniLM-L6-v2` → 384-dim L2-normalised vectors |
 | 4 | `search.py` | FAISS `IndexFlatIP` (cosine) **or** Pinecone serverless query |
 | 5 | `reranker.py` | Cross-encoder (`ms-marco-MiniLM-L-6-v2`) re-scores top passages |
-| 6 | `answer_generator.py` | Chosen LLM synthesises answer; `stream_tokens()` yields word-by-word |
+| 6 | `answer_generator.py` | Chosen LLM synthesises answer with conversation history; `stream_tokens()` yields word-by-word |
 | 7 | `cache.py` | 1-hour TTL cache; FAISS index persisted to disk; Prometheus metrics |
 
 ---
@@ -147,21 +151,25 @@ docker compose up --build
 ## Switching LLM Provider
 
 ```bash
-# Default — flan-t5-small, CPU, no API key needed
-LLM_PROVIDER=local
+# Default — Groq Cloud (FREE, fast, llama-3.3-70b-versatile)
+# Get a free API key at https://console.groq.com
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.3-70b-versatile   # optional override
 
 # OpenAI (gpt-4o-mini by default)
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini      # optional override
+OPENAI_MODEL=gpt-4o-mini             # optional override
 
 # Anthropic (Claude Haiku by default)
 LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-haiku-4-5-20251001   # optional override
-```
 
-API providers fall back to flan-t5 extractive if the call fails.
+# Local — flan-t5-small, CPU, no API key needed (lower quality)
+LLM_PROVIDER=local
+```
 
 ---
 
@@ -334,7 +342,9 @@ pytest
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_PROVIDER` | `local` | LLM backend: `local`, `openai`, `anthropic` |
+| `LLM_PROVIDER` | `groq` | LLM backend: `groq` (free), `openai`, `anthropic`, `local` |
+| `GROQ_API_KEY` | — | Required when `LLM_PROVIDER=groq` — free at console.groq.com |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Groq model override |
 | `OPENAI_API_KEY` | — | Required when `LLM_PROVIDER=openai` |
 | `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model override |
 | `ANTHROPIC_API_KEY` | — | Required when `LLM_PROVIDER=anthropic` |
@@ -357,7 +367,7 @@ pytest
 | Full (reranker + generator) | ~950 MB | Default |
 | No generator | ~450 MB | `ENABLE_GENERATOR=false` |
 | Bi-encoder only | ~300 MB | `ENABLE_RERANKER=false ENABLE_GENERATOR=false` |
-| OpenAI / Anthropic API | ~300 MB | `LLM_PROVIDER=openai` + `ENABLE_GENERATOR=false` |
+| Groq / OpenAI / Anthropic API | ~300 MB | `LLM_PROVIDER=groq` (or `openai`/`anthropic`) + `ENABLE_GENERATOR=false` |
 
 ---
 
