@@ -21,7 +21,7 @@ export default function QueryInput({ onSubmit, loading, onAbort }) {
   }
 
   return (
-    <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface via-surface to-transparent">
+    <div className="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface via-surface to-transparent z-20">
       <div className="max-w-3xl mx-auto relative group">
         {/* Focus glow */}
         <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-primary/10 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition duration-500 pointer-events-none" />

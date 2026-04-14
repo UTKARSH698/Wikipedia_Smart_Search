@@ -171,6 +171,8 @@ cp .env.example .env
 # Edit .env and set GROQ_API_KEY=gsk_...
 ```
 
+> **Important:** The backend reads all settings from `.env` via `python-dotenv`. Without setting `GROQ_API_KEY`, it silently falls back to the local flan-t5-small model (short, low-quality answers).
+
 ### 2 — Install Python dependencies
 
 ```bash

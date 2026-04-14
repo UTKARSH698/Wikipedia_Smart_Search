@@ -245,51 +245,51 @@ export default function App() {
 
 function EmptyState({ onSample }) {
   return (
-    <div className="max-w-3xl w-full mx-auto flex flex-col items-center text-center space-y-12 pb-32 px-4">
+    <div className="max-w-3xl w-full mx-auto flex flex-col items-center text-center space-y-10 pt-8 md:pt-14 px-4">
 
-      {/* Archive Ready badge */}
-      <div className="inline-flex items-center gap-2 px-3 py-1 font-label text-xs tracking-wider uppercase"
-           style={{ background: "#1e1f26", borderRadius: "9999px", color: "#10b981" }}>
-        <span className="material-symbols-outlined text-sm">auto_awesome</span>
-        Archive Ready
-      </div>
+        {/* Archive Ready badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 font-label text-xs tracking-wider uppercase"
+             style={{ background: "#1e1f26", borderRadius: "9999px", color: "#10b981", border: "1px solid rgba(16,185,129,0.15)" }}>
+          <span className="material-symbols-outlined text-sm">auto_awesome</span>
+          Archive Ready
+        </div>
 
-      {/* Hero headline */}
-      <h2 className="font-headline font-extrabold tracking-tighter leading-tight"
-          style={{ fontSize: "clamp(2.5rem, 6vw, 4rem)", letterSpacing: "-0.02em", color: "#e2e2eb" }}>
-        What would you like to <br />
-        <span style={{
-          background: "linear-gradient(to right, #10b981, #69f6b8)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-        }}>
-          research today?
-        </span>
-      </h2>
+        {/* Hero headline */}
+        <h2 className="font-headline font-extrabold tracking-tighter leading-tight"
+            style={{ fontSize: "clamp(2.2rem, 5vw, 3.5rem)", letterSpacing: "-0.02em", color: "#e2e2eb" }}>
+          What would you like to <br />
+          <span style={{
+            background: "linear-gradient(to right, #10b981, #69f6b8)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}>
+            research today?
+          </span>
+        </h2>
 
-      {/* Sample question cards — pill shaped */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-        {SAMPLES.map((s) => (
-          <button
-            key={s.label}
-            onClick={() => onSample(s.label)}
-            className="group flex flex-col items-start text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
-            style={{
-              background: "#11131a",
-              borderRadius: "9999px",
-              padding: "1.5rem",
-              border: "1px solid rgba(70,69,84,0.1)",
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = "#1e1f26"}
-            onMouseLeave={e => e.currentTarget.style.background = "#11131a"}
-          >
-            <span className="material-symbols-outlined mb-3 transition-opacity opacity-60 group-hover:opacity-100"
-                  style={{ color: "#10b981" }}>{s.icon}</span>
-            <span className="font-headline font-bold text-lg" style={{ color: "#e2e2eb" }}>{s.label}</span>
-            <span className="text-sm mt-1" style={{ color: "#aaaab3" }}>{s.sub}</span>
-          </button>
-        ))}
-      </div>
+        {/* Sample question cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+          {SAMPLES.map((s) => (
+            <button
+              key={s.label}
+              onClick={() => onSample(s.label)}
+              className="group flex flex-col items-start text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: "#11131a",
+                borderRadius: "1.25rem",
+                padding: "1.5rem",
+                border: "1px solid rgba(70,69,84,0.2)",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#1a1c24"; e.currentTarget.style.borderColor = "rgba(105,246,184,0.15)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#11131a"; e.currentTarget.style.borderColor = "rgba(70,69,84,0.2)"; }}
+            >
+              <span className="material-symbols-outlined mb-3 transition-opacity opacity-60 group-hover:opacity-100"
+                    style={{ color: "#10b981" }}>{s.icon}</span>
+              <span className="font-headline font-bold text-base" style={{ color: "#e2e2eb" }}>{s.label}</span>
+              <span className="text-sm mt-1.5 leading-relaxed text-left" style={{ color: "#aaaab3" }}>{s.sub}</span>
+            </button>
+          ))}
+        </div>
     </div>
   );
 }

@@ -23,6 +23,10 @@ from typing import AsyncGenerator
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Load .env from project root before any other imports read os.environ
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+
 from fastapi import FastAPI, HTTPException, Request, Security, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -440,6 +444,7 @@ def ask_stream(
         return f"data: {json.dumps(data)}\n\n"
 
     def event_stream():
+        global _cache_hit_count
         cache_key = f"{req.query.lower()}|{req.top_k}|{req.num_articles}"
         cached = cache.get(cache_key)
         if cached:
