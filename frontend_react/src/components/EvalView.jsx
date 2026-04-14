@@ -106,7 +106,7 @@ export default function EvalView() {
         <div className="space-y-8">
 
           {/* Summary metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <MetricCard
               label="Precision@k"
               value={result.mean_precision_at_k}
@@ -119,6 +119,21 @@ export default function EvalView() {
               description="Mean Reciprocal Rank — how high the first relevant passage ranks"
               color="#77e6ff"
             />
+            {result.mean_faithfulness != null ? (
+              <MetricCard
+                label="Faithfulness"
+                value={result.mean_faithfulness}
+                description="LLM-as-judge: answer grounded in retrieved passages (not hallucinated)"
+                color="#c084fc"
+              />
+            ) : (
+              <div className="p-6 space-y-2 rounded-xl flex flex-col justify-center" style={{ background: "#11131a", border: "1px dashed rgba(70,69,84,0.5)" }}>
+                <p className="font-label text-xs font-bold uppercase tracking-widest" style={{ color: "#aaaab3" }}>Faithfulness</p>
+                <p className="text-xs" style={{ color: "#464554" }}>
+                  LLM-as-judge scoring — set <code className="px-1 rounded" style={{ background: "#1e1f26" }}>GROQ_API_KEY</code> to enable
+                </p>
+              </div>
+            )}
             <div className="p-6 space-y-3 rounded-xl" style={{ background: "#11131a" }}>
               <div className="flex justify-between items-start">
                 <div>
@@ -166,7 +181,7 @@ export default function EvalView() {
                     )}
                   </div>
                   {!q.error && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className={`grid gap-4 ${q.faithfulness != null ? "grid-cols-3" : "grid-cols-2"}`}>
                       <div>
                         <p className="font-label text-[10px] uppercase tracking-widest mb-1" style={{ color: "#64748b" }}>Precision@k</p>
                         <Bar value={q.precision_at_k} color="#69f6b8" />
@@ -175,6 +190,12 @@ export default function EvalView() {
                         <p className="font-label text-[10px] uppercase tracking-widest mb-1" style={{ color: "#64748b" }}>MRR</p>
                         <Bar value={q.mrr} color="#77e6ff" />
                       </div>
+                      {q.faithfulness != null && (
+                        <div>
+                          <p className="font-label text-[10px] uppercase tracking-widest mb-1" style={{ color: "#64748b" }}>Faithfulness</p>
+                          <Bar value={q.faithfulness} color="#c084fc" />
+                        </div>
+                      )}
                     </div>
                   )}
                   {q.error && <p className="text-xs" style={{ color: "#ffb4ab" }}>{q.error}</p>}

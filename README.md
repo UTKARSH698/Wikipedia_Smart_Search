@@ -50,7 +50,7 @@ Search engines return links. LLMs hallucinate. **WikiQA bridges the gap:**
 | **History analytics** | Bento-grid research history with topic distribution charts and sort/filter |
 | **Explainability** | Every retrieved passage shows a colour-coded confidence bar (High / Medium / Low) |
 | **JWT auth** | Register/login, per-user query history in SQLite |
-| **Benchmark page** | In-app Precision@k, MRR, and latency evaluation across 5 benchmark queries |
+| **Benchmark page** | In-app Precision@k, MRR, faithfulness (LLM-as-judge), and latency across 5 queries |
 | **Observability** | `/metrics/prometheus` + Prometheus + Grafana dashboard (docker-compose) |
 | **Production** | Rate limiting, API key auth, Docker, GitHub Actions CI/CD, EC2 free-tier optimised |
 
@@ -64,7 +64,7 @@ Search engines return links. LLMs hallucinate. **WikiQA bridges the gap:**
 | 2 | `text_cleaner.py` | Strips markup/citations, splits into overlapping sentence chunks (NLTK) |
 | 3 | `embeddings.py` | Encodes passages with `all-MiniLM-L6-v2` → 384-dim L2-normalised vectors |
 | 4 | `search.py` | FAISS `IndexFlatIP` (cosine) **or** Pinecone serverless query |
-| 5 | `reranker.py` | Cross-encoder (`ms-marco-MiniLM-L-6-v2`) re-scores top passages |
+| 5 | `reranker.py` | Cross-encoder (`ms-marco-MiniLM-L-6-v2`) re-scores top passages; `enforce_source_diversity()` guarantees ≥1 passage per fetched article |
 | 6 | `answer_generator.py` | Chosen LLM synthesises answer with conversation history; `stream_tokens()` yields word-by-word |
 | 7 | `cache.py` | 1-hour TTL cache; FAISS index persisted to disk; Prometheus metrics |
 
@@ -122,7 +122,7 @@ wiki/
 │   ├── database.py         # SQLite — users + query history
 │   ├── answer_generator.py # Multi-LLM: Groq / OpenAI / Anthropic / flan-t5 + conversation memory
 │   ├── search.py           # FAISS IndexFlatIP + Pinecone drop-in (VECTOR_STORE flag)
-│   ├── reranker.py         # Cross-encoder re-ranking (ms-marco-MiniLM-L-6-v2)
+│   ├── reranker.py         # Cross-encoder re-ranking + enforce_source_diversity()
 │   ├── embeddings.py       # Sentence-transformer singleton (all-MiniLM-L6-v2)
 │   ├── wikipedia_api.py    # Wikipedia fetch & disambiguation handling
 │   └── cache.py            # TTL in-memory response cache
@@ -137,11 +137,12 @@ wiki/
 │           ├── Sidebar.jsx       # Nav sidebar + SettingsPanel export
 │           ├── PassageCard.jsx   # Passage card with colour-coded confidence bar + source link
 │           ├── HistoryView.jsx   # Bento-grid history with analytics stats + sort/filter
-│           └── EvalView.jsx      # Benchmark page — Precision@k, MRR, latency
+│           └── EvalView.jsx      # Benchmark page — Precision@k, MRR, faithfulness, latency
 ├── eval/
-│   └── evaluate.py         # CLI benchmark — Precision@k, MRR, latency
+│   └── evaluate.py         # CLI benchmark — Precision@k, MRR, faithfulness (LLM-as-judge), latency
 ├── tests/
-│   └── test_api.py         # pytest tests (unit + integration)
+│   ├── test_api.py         # Integration tests — API shape, auth, caching
+│   └── test_pipeline.py    # Unit tests — chunking, cache, reranker, source diversity
 ├── utils/
 │   ├── text_cleaner.py     # NLTK sentence chunking, Wikipedia markup strip
 │   └── logger.py           # Centralized logging
@@ -399,7 +400,9 @@ python eval/evaluate.py --url http://localhost:8000 --out results.json
 # Or use the in-app Benchmark page: click "Benchmark" in the sidebar
 ```
 
-Outputs Precision@k, MRR@k, and p50/p95/p99 latency across 8 benchmark queries.
+Outputs Precision@k, MRR@k, faithfulness (LLM-as-judge), and p50/p95/p99 latency across 8 benchmark queries.
+
+Faithfulness scoring uses the same LLM as the generator (Groq by default) to ask: *"Given only these passages, is this answer supported? YES or NO."* This detects hallucination — claims the LLM introduced that aren't in the retrieved Wikipedia text. Requires `GROQ_API_KEY`; omitted silently otherwise.
 
 ---
 
@@ -408,6 +411,10 @@ Outputs Precision@k, MRR@k, and p50/p95/p99 latency across 8 benchmark queries.
 ```bash
 pytest
 ```
+
+46 tests across two suites:
+- `tests/test_api.py` — integration tests: API shape, auth flow, cache headers
+- `tests/test_pipeline.py` — unit tests: text cleaning, passage chunking, FAISS cache eviction, reranker fallbacks, **source diversity enforcement**
 
 ---
 
@@ -455,6 +462,20 @@ See [SCALING.md](SCALING.md) for a full guide covering:
 
 ---
 
+## Known Limitations
+
+This is an honest account of what the system handles poorly. These are documented design trade-offs, not overlooked bugs.
+
+| Limitation | Root cause | How I'd address it |
+|------------|-----------|-------------------|
+| **Multi-hop questions** — "Who is the president of the country that invented the internet?" | Single-pass retrieval; pipeline can't chain lookups | Chain-of-thought retrieval or a query decomposition step before the first FAISS call |
+| **Post-2024 knowledge gaps** — recent events may return stale or empty Wikipedia articles | Wikipedia coverage is finite; no indexing of live news | Add a news API fallback (e.g. NewsAPI) for queries with temporal signals ("recent", "2025", "last week") |
+| **Disambiguation ambiguity** — "What is Mercury?" retrieves passages about the planet, element, and Roman god simultaneously | Wikipedia disambiguation pages are silently resolved to the first option | Detect when multiple semantically distant articles are fetched and surface a clarifying question to the user before retrieval |
+| **NLTK chunking breaks on non-prose content** — code snippets, tables, mathematical notation, and lists break the sentence tokenizer | NLTK `sent_tokenize` assumes natural-language prose | Use a structure-aware splitter (e.g. detect Markdown tables / code fences) and fall back to fixed-length chunking for non-prose sections |
+| **No per-user retrieval personalisation** — all users get identical results for identical queries | Implemented as a shared cache; no user embedding profiles | Could weight topic embeddings by prior query history, but this risks filter bubbles and requires explicit user consent design — deferred intentionally |
+
+---
+
 ## Interview Talking Points
 
 **"Walk me through your RAG pipeline."**
@@ -468,6 +489,9 @@ See [SCALING.md](SCALING.md) for a full guide covering:
 
 **"How did you measure retrieval quality?"**
 > "Precision@k and MRR. P@k measures what fraction of the top-k passages contain the answer. MRR measures the reciprocal rank of the first relevant passage — it penalises burying the right answer at position 4 out of 5. I ran both on 8 benchmark queries. With reranking: P@5 ≈ 0.80, MRR ≈ 0.85. Without: P@5 ≈ 0.60, MRR ≈ 0.68."
+
+**"How do you know the LLM isn't hallucinating?"**
+> "Retrieval metrics like P@k tell you whether the right passages were found — but not whether the LLM stayed faithful to them. I added an LLM-as-judge faithfulness check: after generating an answer, the same model is asked 'Given only these passages, is this answer supported? YES or NO.' It's the same pattern Cohere's RAG evaluator and the Ragas framework use. It's not ground-truth, but it catches the most common failure mode — the LLM generating plausible-sounding facts that aren't in the retrieved text."
 
 ---
 

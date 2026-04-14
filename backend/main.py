@@ -259,14 +259,64 @@ def metrics():
     }
 
 
+def _judge_faithfulness(answer: str, passages: list, query: str) -> float | None:
+    """
+    LLM-as-judge faithfulness check.
+
+    Asks the LLM: "Given ONLY these passages, is this answer supported?"
+    Returns 1.0 (YES), 0.0 (NO), or None if the judge cannot run.
+
+    This measures *generation* quality — whether the LLM stayed faithful to
+    retrieved passages or introduced claims not present in them (hallucination).
+    Retrieval metrics like Precision@k and MRR cannot catch this.
+    """
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return None
+    passages_str = "\n\n".join(
+        f"[Passage {i + 1}]: {p[:400]}" for i, p in enumerate(passages[:5])
+    )
+    judge_prompt = (
+        f"Question: {query}\n\n"
+        f"Retrieved passages:\n{passages_str}\n\n"
+        f"Generated answer: {answer[:600]}\n\n"
+        "Task: Using ONLY the retrieved passages above as your reference, "
+        "decide whether the generated answer is factually supported. "
+        "Reply YES if every factual claim in the answer can be traced to "
+        "the passages. Reply NO if the answer contains facts absent from "
+        "or contradicted by the passages. Your first word must be YES or NO."
+    )
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        resp = client.chat.completions.create(
+            model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            messages=[{"role": "user", "content": judge_prompt}],
+            max_tokens=16,
+            temperature=0.0,
+        )
+        verdict = resp.choices[0].message.content.strip().upper()
+        return 1.0 if verdict.startswith("YES") else 0.0
+    except Exception as exc:
+        logger.warning("Faithfulness judge failed: %s", exc)
+        return None
+
+
 @app.get("/evaluate", tags=["System"])
 def evaluate(k: int = 5, _: None = Security(verify_api_key)):
     """
-    Run the built-in benchmark (5 queries) and return Precision@k, MRR, latencies.
+    Run the built-in benchmark and return Precision@k, MRR, faithfulness, and latency.
+
+    Faithfulness is measured using LLM-as-judge: after generating an answer the
+    same LLM is asked "Given only these passages, is this answer supported?"
+    This catches hallucinations that retrieval metrics (P@k, MRR) cannot detect.
+    Requires GROQ_API_KEY to be set; silently omitted otherwise.
+
     Intended for CI / logbook reporting — not for high-frequency use.
     """
     results = []
     latencies = []
+    faithfulness_scores = []
 
     for item in _BENCH:
         t0 = time.time()
@@ -277,22 +327,30 @@ def evaluate(k: int = 5, _: None = Security(verify_api_key)):
             idx = engine.index_article(passages, sources)
             hits = engine.search(item["query"], idx, top_k=k)
             hits = reranker.rerank(item["query"], hits)[:k]
+            answer = generator.generate(item["query"], hits, primary_title)
             elapsed = (time.time() - t0) * 1000
 
             passage_texts = [h.passage for h in hits]
-            results.append({
+            faith = _judge_faithfulness(answer, passage_texts, item["query"])
+
+            entry = {
                 "query":          item["query"],
                 "precision_at_k": round(_precision_at_k(passage_texts, item["keywords"], k), 3),
                 "mrr":            round(_mrr_at_k(passage_texts, item["keywords"], k), 3),
                 "latency_ms":     round(elapsed, 1),
-            })
+            }
+            if faith is not None:
+                entry["faithfulness"] = faith
+                faithfulness_scores.append(faith)
+
+            results.append(entry)
             latencies.append(elapsed)
         except Exception as exc:
             results.append({"query": item["query"], "error": str(exc)})
 
     successful = [r for r in results if "error" not in r]
     n = len(successful)
-    return {
+    response = {
         "k": k,
         "queries_run": len(_BENCH),
         "successful": n,
@@ -301,6 +359,11 @@ def evaluate(k: int = 5, _: None = Security(verify_api_key)):
         "mean_latency_ms":     round(sum(latencies) / len(latencies), 1) if latencies else 0,
         "per_query": results,
     }
+    if faithfulness_scores:
+        response["mean_faithfulness"] = round(
+            sum(faithfulness_scores) / len(faithfulness_scores), 3
+        )
+    return response
 
 
 @app.get("/cache/clear", tags=["System"])
