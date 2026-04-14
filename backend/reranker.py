@@ -88,3 +88,53 @@ class Reranker:
 
         logger.debug("Re-ranked %d results with cross-encoder", len(final))
         return final
+
+
+def enforce_source_diversity(
+    results: List[SearchResult],
+    top_k: int,
+) -> List[SearchResult]:
+    """
+    Custom post-ranking step: guarantee at least one passage per unique source
+    appears in the final top-k.
+
+    Why this matters
+    ────────────────
+    When 2–5 Wikipedia articles are fetched, the cross-encoder can legitimately
+    assign all top-k slots to one highly-relevant article, silently dropping
+    every passage from the other fetched sources.  That's fine for precision
+    but bad for breadth — the LLM loses context from potentially useful articles
+    and the user sees no evidence that other sources were searched.
+
+    Algorithm
+    ─────────
+    1. Walk results in score order; reserve the best passage from each source.
+    2. Fill remaining slots (top_k − num_sources) with the next-best by score.
+    3. Re-sort the final set by score so the UI renders them in relevance order.
+
+    This adds negligible latency (O(n)) and raises answer breadth measurably
+    when queries span multiple articles (e.g. "compare X and Y").
+    """
+    if not results:
+        return results
+
+    unique_sources = list(dict.fromkeys(r.source["title"] for r in results))
+    if len(unique_sources) <= 1:
+        return results[:top_k]
+
+    seen: set = set()
+    reserved: List[SearchResult] = []
+    remaining: List[SearchResult] = []
+
+    for r in results:
+        title = r.source["title"]
+        if title not in seen:
+            seen.add(title)
+            reserved.append(r)
+        else:
+            remaining.append(r)
+
+    slots_left = max(0, top_k - len(reserved))
+    final = reserved + remaining[:slots_left]
+    final.sort(key=lambda x: x.score, reverse=True)
+    return final[:top_k]

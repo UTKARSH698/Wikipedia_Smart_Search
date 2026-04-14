@@ -40,7 +40,7 @@ from backend.answer_generator import AnswerGenerator
 from backend.auth import create_token, decode_token, hash_password, verify_password
 from backend.cache import TTLCache
 from backend.database import get_history, get_user_by_id, get_user_by_username, init_db, save_history, create_user
-from backend.reranker import Reranker
+from backend.reranker import Reranker, enforce_source_diversity
 from backend.search import SemanticSearchEngine
 from backend.wikipedia_api import WikipediaFetcher
 from utils.logger import get_logger
@@ -387,7 +387,8 @@ def ask(
         raise HTTPException(status_code=500, detail="Semantic search returned no results.")
 
     if req.rerank:
-        results = reranker.rerank(req.query, results)[: req.top_k]
+        results = reranker.rerank(req.query, results)
+        results = enforce_source_diversity(results, top_k=req.top_k)
     else:
         results = results[: req.top_k]
     history = [{"role": t.role, "content": t.content} for t in req.history]
@@ -480,7 +481,8 @@ def ask_stream(
             return
 
         if req.rerank:
-            results = reranker.rerank(req.query, results)[: req.top_k]
+            results = reranker.rerank(req.query, results)
+            results = enforce_source_diversity(results, top_k=req.top_k)
         else:
             results = results[: req.top_k]
 

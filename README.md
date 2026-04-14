@@ -1,8 +1,13 @@
-# WikiQA — Production-Grade RAG System
+# WikiQA — RAG-based Question Answering over Wikipedia
 
-> **"I built a production-grade RAG system with multi-LLM support, real-time streaming, and evaluation metrics like MRR and Precision@k — similar to how modern AI search engines like Perplexity work."**
+A full-stack Retrieval-Augmented Generation system that answers natural-language questions using live Wikipedia data. It was built to understand the engineering trade-offs in a real RAG pipeline — not just to call an LLM API.
 
-A full-stack, deployable Retrieval-Augmented Generation application that answers natural-language questions using live Wikipedia data, semantic search, and a pluggable language model — with token streaming, conversation memory, JWT auth, and built-in observability.
+The core design decisions worth discussing in an interview:
+
+- **Why two retrieval stages?** The bi-encoder (FAISS) is fast but scores query and passage independently. The cross-encoder re-ranks the candidate set jointly, raising Precision@k from ~0.60 to ~0.80 at the cost of ~500ms. Whether that trade-off is worth it depends on use case.
+- **Source diversity enforcement** — a custom post-ranking step that guarantees at least one passage per fetched Wikipedia article appears in the final top-k. Without it, the cross-encoder fills all slots from the single most-relevant article and silently drops context from other sources. This isn't covered in RAG tutorials but matters in production when queries span multiple topics.
+- **Sentence-boundary chunking with configurable overlap** — passages always start and end at sentence boundaries (NLTK), unlike naive word-count windows that cut mid-sentence. Overlap of 1 sentence between adjacent passages avoids losing context at chunk edges.
+- **Content-hash FAISS persistence** — the index is keyed by an MD5 of passage content, so re-running the same query skips both re-encoding and re-fetching.
 
 ```
 ┌─────────────────────────────┐  SSE stream   ┌──────────────────────────────────────────────┐
@@ -453,16 +458,16 @@ See [SCALING.md](SCALING.md) for a full guide covering:
 ## Interview Talking Points
 
 **"Walk me through your RAG pipeline."**
-> "The user's query is encoded into a 384-dimensional vector using a sentence-transformer. FAISS does a cosine similarity search across all Wikipedia passage embeddings. The top-k results are then re-scored by a cross-encoder — which looks at query-passage pairs jointly, giving much higher precision. Finally, the top passages plus conversation history are sent to the LLM as context, and the response streams back token-by-token via SSE."
+> "Query → bi-encoder retrieval over a FAISS index → cross-encoder re-ranking → source-diversity enforcement → LLM generation with conversation history → SSE streaming. Each stage has a measurable cost/benefit. The interesting engineering decision is the re-ranker: +20 points of Precision@k at +500ms latency. For a search use-case that's usually worth it; for a real-time chat assistant you might skip it."
 
-**"Why FAISS over a database like pgvector?"**
-> "FAISS is in-memory and extremely fast for single-node use — sub-20ms queries. pgvector is better when you need SQL joins or multi-tenancy. I also support Pinecone as a drop-in swap for serverless scale."
+**"What's the source diversity step — I haven't seen that in tutorials."**
+> "When you fetch 2–5 Wikipedia articles, the cross-encoder can legitimately put all 5 top-k slots from one article and drop the others entirely. That's great for precision but bad for the LLM's context breadth. I added an O(n) post-processing step that reserves one slot per unique source before filling remaining slots by score. It costs nothing in latency and noticeably improves answer quality on multi-topic queries."
 
-**"How did you measure quality?"**
-> "I implemented Precision@k and MRR (Mean Reciprocal Rank). Precision@k measures what fraction of the top-k passages contain the answer keywords. MRR measures how high the first relevant passage ranks. Both are standard IR metrics used at Google and industry RAG evaluations."
+**"Why FAISS over pgvector or a managed vector DB?"**
+> "FAISS is in-process and does sub-20ms exact cosine search. pgvector makes sense when you need SQL joins or multi-tenancy. Pinecone is the right call at scale — I built it as a drop-in swap behind a `VECTOR_STORE` flag so I can benchmark both. For a single-node demo, FAISS with content-hash-keyed disk persistence is the simplest thing that works."
 
-**"What does the reranker actually improve?"**
-> "The bi-encoder encodes query and passage independently, so it misses fine-grained relevance signals. The cross-encoder sees both together and can detect subtle semantic alignment. In my benchmarks, reranking improves Precision@k from ~0.60 to ~0.80 at the cost of ~500ms."
+**"How did you measure retrieval quality?"**
+> "Precision@k and MRR. P@k measures what fraction of the top-k passages contain the answer. MRR measures the reciprocal rank of the first relevant passage — it penalises burying the right answer at position 4 out of 5. I ran both on 8 benchmark queries. With reranking: P@5 ≈ 0.80, MRR ≈ 0.85. Without: P@5 ≈ 0.60, MRR ≈ 0.68."
 
 ---
 

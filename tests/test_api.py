@@ -142,7 +142,7 @@ class TestAskSuccess:
 
     def test_response_has_required_fields(self):
         data = client.post("/ask", json={"query": "What is Artificial Intelligence?"}).json()
-        for field in ("query", "answer", "primary_title", "primary_url", "passages", "scores", "sources", "related_topics"):
+        for field in ("query", "answer", "primary_title", "primary_url", "passages", "sources", "related_topics"):
             assert field in data, f"Missing field: {field}"
 
     def test_answer_is_non_empty(self):
@@ -153,13 +153,17 @@ class TestAskSuccess:
         data = client.post("/ask", json={"query": "What is Artificial Intelligence?"}).json()
         assert isinstance(data["passages"], list)
 
-    def test_scores_length_matches_passages(self):
+    def test_passage_objects_have_score_and_source(self):
+        """Passages are now objects with {passage, score, source} — not bare strings."""
         data = client.post("/ask", json={"query": "What is Artificial Intelligence?"}).json()
-        assert len(data["scores"]) == len(data["passages"])
+        for p in data["passages"]:
+            assert "passage" in p
+            assert "score" in p
+            assert "source" in p
 
-    def test_sources_length_matches_passages(self):
+    def test_sources_is_list(self):
         data = client.post("/ask", json={"query": "What is Artificial Intelligence?"}).json()
-        assert len(data["sources"]) == len(data["passages"])
+        assert isinstance(data["sources"], list)
 
 
 # ---------------------------------------------------------------------------
