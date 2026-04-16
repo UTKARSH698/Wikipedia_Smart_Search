@@ -46,9 +46,9 @@ Search engines return links. LLMs hallucinate. **WikiQA bridges the gap:**
 | **Abort streaming** | Stop button cancels in-flight SSE stream instantly (AbortController) |
 | **LaTeX rendering** | Inline `$...$` and block `$$...$$` math rendered via KaTeX |
 | **Vector store** | `VECTOR_STORE=faiss` (default, local) · `pinecone` (serverless, cloud) |
-| **React chat UI** | Premium dark "Emerald Nocturne" design — streaming bubbles, confidence-scored passage cards, related topic chips |
+| **React chat UI** | Dark "Emerald Nocturne" design — fade-up message animations, pulsing streaming avatar, copy button, "Coming soon" attach tooltip |
 | **History analytics** | Bento-grid research history with topic distribution charts and sort/filter |
-| **Explainability** | Every retrieved passage shows a colour-coded confidence bar (High / Medium / Low) |
+| **Explainability** | Every retrieved passage shows a colour-coded confidence bar (High / Medium / Low), WCAG AA contrast text |
 | **JWT auth** | Register/login, per-user query history in SQLite |
 | **Benchmark page** | In-app Precision@k, MRR, faithfulness (LLM-as-judge), and latency across 5 queries |
 | **Observability** | `/metrics/prometheus` + Prometheus + Grafana dashboard (docker-compose) |
@@ -132,10 +132,10 @@ wiki/
 │       ├── api.js                # askStream() async generator + ask/login/register/history
 │       └── components/
 │           ├── AuthModal.jsx     # Login / register modal
-│           ├── ChatMessage.jsx   # User / streaming / assistant / error bubbles + LaTeX
-│           ├── QueryInput.jsx    # Glass input bar — send button + red abort button
-│           ├── Sidebar.jsx       # Nav sidebar + SettingsPanel export
-│           ├── PassageCard.jsx   # Passage card with colour-coded confidence bar + source link
+│           ├── ChatMessage.jsx   # User / streaming / assistant / error bubbles + LaTeX + copy button
+│           ├── QueryInput.jsx    # Glass input bar — send/abort, char counter, "coming soon" attach tooltip
+│           ├── Sidebar.jsx       # Nav sidebar, history, smooth toggle, SettingsPanel
+│           ├── PassageCard.jsx   # Passage card — colour-coded confidence bar, WCAG AA text, source link
 │           ├── HistoryView.jsx   # Bento-grid history with analytics stats + sort/filter
 │           └── EvalView.jsx      # Benchmark page — Precision@k, MRR, faithfulness, latency
 ├── eval/
@@ -459,6 +459,27 @@ See [SCALING.md](SCALING.md) for a full guide covering:
 - Async FastAPI with `run_in_executor` and Celery task queues
 - Multi-service AWS architecture with ECS, ALB, RDS, ElastiCache, and CloudFront
 - Cost estimates from $0 (free tier) to $200/month (high availability)
+
+---
+
+## UI / UX Details
+
+Small details that separate a portfolio project from a tutorial clone:
+
+| Detail | Where | Why it matters |
+|--------|-------|----------------|
+| **Fade-up entrance animation** | Every chat message | Smooth entry prevents jarring DOM insertions |
+| **Pulsing avatar during streaming** | Assistant bubble | Communicates active generation without extra UI elements |
+| **Status line fades, not disappears** | Streaming state | Eliminates the flash between "Searching…" and first token |
+| **Accordion animates open** | Retrieved passages | Content reveal feels intentional, not abrupt |
+| **Copy button always visible at low opacity** | Answer text | Touch devices can't hover — button must be discoverable |
+| **Char counter near limit only** | Query input | Reduces clutter; appears only when it matters (≤40 chars left) |
+| **Placeholder changes while loading** | Query input | `"Generating response…"` communicates state without a spinner |
+| **Attach button "Coming soon" tooltip** | Query input | Non-functional affordance with honest feedback beats a dead click |
+| **Backdrop fades in/out** | Mobile sidebar | Matches iOS/Android sheet patterns — unmounting looks broken |
+| **Toggle thumb slides smoothly** | Settings panel | `transition-transform` on the thumb — without it the toggle snaps |
+| **WCAG AA passage text** | PassageCard | `#c8c8d0` on `#0f1119` passes contrast — `#aaaab3` did not |
+| **Distinct h1/h2/h3 sizes in prose** | Answer markdown | Wikipedia answers use headers; without size, hierarchy collapses |
 
 ---
 
