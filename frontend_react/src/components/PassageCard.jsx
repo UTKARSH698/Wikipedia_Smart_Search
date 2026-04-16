@@ -50,8 +50,8 @@ export default function PassageCard({ passage, index }) {
         </div>
       )}
 
-      {/* Passage text */}
-      <p className="text-sm leading-relaxed" style={{ color: "#aaaab3" }}>{text}</p>
+      {/* Passage text — #c8c8d0 passes WCAG AA on #0f1119 background */}
+      <p className="text-sm leading-relaxed" style={{ color: "#c8c8d0" }}>{text}</p>
 
       {/* Source link */}
       {passage.source?.url && (

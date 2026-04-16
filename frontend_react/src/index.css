@@ -40,12 +40,6 @@ html { scroll-behavior: smooth; }
   padding-right: 2px;
 }
 
-/* Emerald glow tag */
-.emerald-glow-tag {
-  box-shadow: inset 0 0 10px rgba(105,246,184,0.1), 0 0 10px rgba(105,246,184,0.1);
-  border: 1px solid rgba(105,246,184,0.3);
-}
-
 /* Glass panel */
 .glass-panel {
   background: rgba(23,25,33,0.6);
@@ -61,21 +55,59 @@ mark {
 }
 
 /* Markdown prose inside answers */
-.answer-prose h1, .answer-prose h2, .answer-prose h3 {
+.answer-prose h1 {
   font-family: 'Manrope', sans-serif;
   font-weight: 700;
+  font-size: 1.5rem;
   color: #e2e2eb;
+  margin-top: 1rem;
   margin-bottom: 0.5rem;
+}
+.answer-prose h2 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: #e2e2eb;
+  margin-top: 0.875rem;
+  margin-bottom: 0.4rem;
+}
+.answer-prose h3 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #c8c8d0;
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
 }
 .answer-prose p { margin-bottom: 0.75rem; line-height: 1.75; }
 .answer-prose ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
 .answer-prose li { margin-bottom: 0.25rem; }
-.answer-prose strong { color: #e2e2eb; font-weight: 600; }
+/* strong: use text-primary (emerald) set by ChatMessage component */
+.answer-prose strong { font-weight: 600; }
 .answer-prose a { color: #69f6b8; text-decoration: underline; }
 .answer-prose code { background: #1d1f27; padding: 0.1rem 0.3rem; border-radius: 4px; font-size: 0.875em; }
+.answer-prose pre { background: #1d1f27; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 0.75rem; }
+.answer-prose blockquote { border-left: 3px solid #69f6b8; padding-left: 1rem; color: #c8c8d0; font-style: italic; }
 
-/* Animated typing dots */
-@keyframes blink { 0%,80%,100%{opacity:0} 40%{opacity:1} }
-.dot { animation: blink 1.4s infinite both; }
-.dot:nth-child(2) { animation-delay: 0.2s; }
-.dot:nth-child(3) { animation-delay: 0.4s; }
+/* Passage accordion smooth open/close */
+@keyframes accordion-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.accordion-open {
+  animation: accordion-down 0.22s ease-out both;
+}
+
+/* Fade-in for new messages */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.message-enter {
+  animation: fade-up 0.25s ease-out both;
+}
+
+/* Toggle thumb slide */
+.toggle-thumb {
+  transition: transform 0.2s ease, background 0.2s ease;
+}

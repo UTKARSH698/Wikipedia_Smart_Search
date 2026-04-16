@@ -1,10 +1,12 @@
 export default function Sidebar({ username, history, settings, onSettingsChange, onHistoryClick, onSignIn, onSignOut, onNewSearch, open, onClose, activeView, onViewChange }) {
   return (
     <>
-      {/* Mobile backdrop */}
-      {open && (
-        <div className="fixed inset-0 z-30 md:hidden" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose} />
-      )}
+      {/* Mobile backdrop — always rendered, fades in/out */}
+      <div
+        className="fixed inset-0 z-30 md:hidden transition-opacity duration-300 pointer-events-none"
+        style={{ background: "rgba(0,0,0,0.6)", opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none" }}
+        onClick={onClose}
+      />
 
       {/* Sidebar panel */}
       <aside
@@ -103,9 +105,10 @@ export default function Sidebar({ username, history, settings, onSettingsChange,
                   </button>
                 ))
               ) : (
-                <p className="px-3 py-2 italic" style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                  No recent research...
-                </p>
+                <div className="px-3 py-3 flex items-center gap-2" style={{ color: "#464554" }}>
+                  <span className="material-symbols-outlined text-base">history</span>
+                  <p className="italic" style={{ fontSize: "0.75rem" }}>Your searches will appear here</p>
+                </div>
               )}
             </div>
           </nav>
@@ -160,7 +163,7 @@ export function SettingsPanel({ settings, onChange }) {
       <h2 className="font-headline font-bold text-xl" style={{ color: "#e2e2eb" }}>Search Settings</h2>
 
       {[
-        { key: "top_k", label: "Passages (top_k)", min: 1, max: 10 },
+        { key: "top_k", label: "Passages to Retrieve", min: 1, max: 10 },
         { key: "num_articles", label: "Articles to Fetch", min: 1, max: 5 },
       ].map(({ key, label, min, max }) => (
         <div key={key} className="p-5 space-y-3" style={{ background: "#11131a", borderRadius: "1rem" }}>
@@ -185,7 +188,7 @@ export function SettingsPanel({ settings, onChange }) {
         <button onClick={() => onChange("rerank", !settings.rerank)}
           className="relative w-12 h-6 rounded-full transition-colors"
           style={{ background: settings.rerank ? "#10b981" : "#33343b" }}>
-          <span className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${settings.rerank ? "translate-x-7" : "translate-x-1"}`}
+          <span className={`toggle-thumb absolute top-1 w-4 h-4 rounded-full ${settings.rerank ? "translate-x-7" : "translate-x-1"}`}
                 style={{ background: settings.rerank ? "#003924" : "#aaaab3" }} />
         </button>
       </div>
