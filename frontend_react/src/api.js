@@ -1,4 +1,8 @@
-const BASE = "/api";
+// In dev: Vite proxy rewrites /api → localhost:8000
+// In production (Vercel): VITE_BACKEND_URL points to Railway backend
+const BASE = import.meta.env.VITE_BACKEND_URL
+  ? `${import.meta.env.VITE_BACKEND_URL}`
+  : "/api";
 
 function authHeaders(token) {
   const h = { "Content-Type": "application/json" };
