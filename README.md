@@ -101,12 +101,13 @@ git clone https://github.com/UTKARSH698/wikiqa-rag-system
 cd wikiqa-rag-system
 cp .env.example .env
 # Set GROQ_API_KEY=gsk_... (free at console.groq.com)
+# Set GRAFANA_PASSWORD and, for anything public-facing, JWT_SECRET
 
 # Docker (recommended) — starts backend + React + Prometheus + Grafana
 docker compose up --build
 # Backend → http://localhost:8000
 # React UI → http://localhost:3000
-# Grafana → http://localhost:3001 (admin/admin)
+# Grafana → http://localhost:3001 (user admin, password from GRAFANA_PASSWORD)
 
 # Or run manually
 pip install -r requirements.txt

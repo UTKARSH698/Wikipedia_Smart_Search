@@ -12,13 +12,17 @@ Token payload: { "sub": str(user_id), "username": str, "exp": int }
 from __future__ import annotations
 
 import os
+import secrets
 import time
 from typing import Optional
 
 import jwt
 from passlib.context import CryptContext
 
-JWT_SECRET    = os.getenv("JWT_SECRET", "change-me-in-production-use-a-long-random-string")
+# No literal fallback: a hardcoded default would let anyone who reads this file
+# forge a token for any user. Unset means a throwaway per-process secret, so
+# tokens simply do not survive a restart.
+JWT_SECRET    = os.getenv("JWT_SECRET") or secrets.token_urlsafe(32)
 JWT_ALGORITHM = "HS256"
 JWT_TTL_HOURS = int(os.getenv("JWT_TTL_HOURS", "24"))
 

@@ -20,6 +20,9 @@ ENV/
 .env
 *.env
 
+# Claude Code machine-local settings (contains absolute paths and scratch values)
+.claude/settings.local.json
+
 # Data directory — FAISS indexes and logs (can be large)
 data/*.faiss
 data/*.pkl
